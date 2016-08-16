@@ -1,7 +1,7 @@
 {
   "name": "tasktimer",
   "version": "1.0.0",
-  "description": "A timer utility for running/scheduling periodic tasks on the given interval ticks.",
+  "description": "A timer utility for running/scheduling periodic tasks on the given interval ticks. (Node and Browser)",
   "author": "Onur Yıldırım <onur@cutepilot.com>",
   "license": "MIT",
   "main": "dist/tasktimer.min.js",
