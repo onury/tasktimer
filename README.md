@@ -10,7 +10,8 @@ Universal module. Works in both Node and Browser. Less than **3KB** (minified, g
 ## Installation
 
 ```sh
-npm i tasktimer --save
+npm i tasktimer --save            # npm
+bower install tasktimer --save    # Bower
 ```
 
 ## How it works
