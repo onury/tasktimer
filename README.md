@@ -31,7 +31,7 @@ var TaskTimer = require('tasktimer');
 
 via script tag in the browser:
 ```html
-<script src="tasktimer.js"></script>
+<script src="tasktimer.min.js"></script>
 ```
 
 ### Example
