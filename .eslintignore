@@ -1,0 +1,5 @@
+# node_modules ignored by default
+
+# examples
+# **/main.js
+# vendor/**/*
