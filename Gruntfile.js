@@ -66,7 +66,7 @@ module.exports = function (grunt) {
                     './src/*.js',
                     './test/**/*.spec.js'
                 ],
-                tasks: ['jasmine_nodejs']
+                tasks: ['build']
             }
         }
     });

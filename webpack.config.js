@@ -13,7 +13,7 @@ params.libMinFile = params.libName.toLowerCase() + '.min.js';
 // http://webpack.github.io/docs/configuration.html
 var options = {
     cache: false,
-    entry: path.join(params.src, 'index.js'),
+    entry: path.join(params.src, 'tasktimer.js'),
     // http://webpack.github.io/docs/configuration.html#devtool
     devtool: 'source-map',
     // devtool: 'eval',
