@@ -1,6 +1,7 @@
 /* global window */
 
 (function () {
+    'use strict';
 
     // This spec file is used both by grunt-contrib-jasmine (for browser) and
     // grunt-jasmine-nodejs (for Node). So we import the lib conditionally.
@@ -11,6 +12,9 @@
         TaskTimer = window.TaskTimer;
     }
 
+    /**
+     *  Test Suite: TaskTimer
+     */
     describe('TaskTimer', function () {
         var interval = 500;
 

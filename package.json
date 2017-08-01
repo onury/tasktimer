@@ -5,6 +5,9 @@
   "author": "Onur Yıldırım <onur@cutepilot.com>",
   "license": "MIT",
   "main": "dist/tasktimer.min.js",
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -1,5 +1,8 @@
 import EventEmitter from 'eventemitter3';
 
+/**
+ *  @private
+ */
 const DEFAULT = {
     INTERVAL: 1000
 };
@@ -7,7 +10,7 @@ const DEFAULT = {
 /**
  *  TaskTimer • https://github.com/onury/tasktimer
  *  @license MIT
- *  @copyright 2016, Onur Yıldırım (onur@cutepilot.com)
+ *  @copyright 2017, Onur Yıldırım (onur@cutepilot.com)
  */
 
 /**
@@ -183,14 +186,11 @@ class TaskTimer extends EventEmitter {
         for (name in this._.tasks) {
             if (tasks[name]) {
                 task = tasks[name];
-                if (this._.tickCount % task.tickInterval === 0) {
-                    if (!task.totalRuns || task.currentRuns < task.totalRuns) {
-                        task.currentRuns += 1;
-                        if (typeof task.callback === 'function') {
-                            task.callback(task);
-                        }
-                        this.emit(TaskTimer.Event.TASK, task);
-                    }
+                if (this._.tickCount % task.tickInterval === 0
+                        && (!task.totalRuns || task.currentRuns < task.totalRuns)) {
+                    task.currentRuns += 1;
+                    if (typeof task.callback === 'function') task.callback(task);
+                    this.emit(TaskTimer.Event.TASK, task);
                 }
             }
         }

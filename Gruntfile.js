@@ -81,11 +81,11 @@ module.exports = function (grunt) {
     //  REGISTER TASKS
     // ----------------------------
 
-    grunt.registerTask('node-test', ['jasmine_nodejs']);
-    grunt.registerTask('browser-test', ['jasmine']);
-    grunt.registerTask('test', ['node-test', 'browser-test']);
+    grunt.registerTask('node-test', ['webpack:min', 'jasmine_nodejs']);
+    grunt.registerTask('browser-test', ['webpack:min', 'jasmine']);
+    grunt.registerTask('test', ['webpack:min', 'jasmine_nodejs', 'jasmine']);
     grunt.registerTask('build', ['webpack:full', 'webpack:min']);
     grunt.registerTask('release', ['build', 'test', 'docma']);
-    grunt.registerTask('default', ['webpack:full', 'test']);
+    grunt.registerTask('default', ['test']);
 
 };

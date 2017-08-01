@@ -62,7 +62,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 	
-	// export default re;
+	// export default tasktimer;
 	// http://stackoverflow.com/a/33683495/112731
 	module.exports = _tasktimer2.default;
 
