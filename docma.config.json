@@ -95,5 +95,5 @@
             "guide": "./README.md"
         }
     ],
-    "dest": "../../onury.github.io/tasktimer"
+    "dest": "../onury.github.io/tasktimer"
 }
