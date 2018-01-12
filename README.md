@@ -4,9 +4,9 @@
 [![release](https://img.shields.io/github/release/onury/tasktimer.svg)](https://github.com/onury/tasktimer)
 [![dependencies](https://david-dm.org/onury/tasktimer.svg)](https://david-dm.org/onury/tasktimer)
 [![license](http://img.shields.io/npm/l/tasktimer.svg)](https://github.com/onury/tasktimer/blob/master/LICENSE)
-[![maintained](https://img.shields.io/maintenance/yes/2017.svg)](https://github.com/onury/tasktimer/graphs/commit-activity)  
+[![maintained](https://img.shields.io/maintenance/yes/2018.svg)](https://github.com/onury/tasktimer/graphs/commit-activity)  
 
-> © 2017, Onur Yıldırım ([@onury](https://github.com/onury)). MIT License.
+> © 2018, Onur Yıldırım ([@onury](https://github.com/onury)). MIT License.
 
 A timer utility for running periodic tasks on the given interval ticks.
 This is useful when you want to run or schedule multiple tasks (on a single timer instance).
