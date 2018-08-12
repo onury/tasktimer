@@ -1,90 +1,112 @@
-var webpack = require('webpack');
-var path = require('path');
+'use strict';
 
-var params = {
-    libName: 'TaskTimer',
-    src: path.resolve(__dirname, 'src'),
-    dist: path.resolve(__dirname, 'dist')
-};
-params.libFile = params.libName.toLowerCase() + '.js';
-params.libMinFile = params.libName.toLowerCase() + '.min.js';
+const path = require('path');
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 
-// Webpack configuration
-// http://webpack.github.io/docs/configuration.html
-var options = {
-    cache: false,
-    entry: path.join(params.src, 'index.js'),
-    // http://webpack.github.io/docs/configuration.html#devtool
-    devtool: 'source-map',
-    // devtool: 'eval',
-    target: 'web',
-    output: {
-        path: params.dist,
-        filename: params.libFile,
-        library: params.libName,
-        libraryTarget: 'umd',
-        umdNamedDefine: true,
-        publicPath: '/dist'
-    },
-    module: {
-        loaders: [
-            {
-                test: /(\.jsx|\.js)$/,
-                loader: 'babel-loader',
-                query: {
-                    presets: ['es2015']
-                    // , plugins: [
-                    //     ['babel-plugin-transform-builtin-extend', {
-                    //         globals: ['Error', 'Array']
-                    //     }]
-                    // ]
-                },
-                exclude: /(node_modules)/
-            }
-        ]
-    },
-    resolve: {
-        root: params.src,
-        extensions: ['', '.js']
-    },
-    // Whether to show progress. Defaults to `true`.
-    progress: false,
-    // Configure the console output.
-    stats: {
-        colors: true,
-        modules: false,
-        reasons: true
-    },
-    // Whether to report error to grunt if webpack find errors. Use
-    // this if webpack errors are tolerable and grunt should
-    // continue.
-    failOnError: true,
-    // Use webpacks watcher. Requires the grunt process
-    // to be kept alive.
-    watch: false,
-    // Whether to finish the grunt task. Use this in combination
-    // with the watch option.
-    keepalive: false,
-    // Whether to embed the webpack-dev-server runtime into the
-    // bundle. Defaults to `false`.
-    inline: false
-};
+const libraryName = 'tasktimer';
+const libPath = path.resolve(__dirname, 'lib');
+const srcPath = path.resolve(__dirname, 'src');
+const nodeModules = path.resolve(__dirname, 'node_modules');
+const publicPath = 'lib/';
 
-module.exports = {
-    options: options,
-    watch: {
-        watch: true,
-        keepalive: true
-    },
-    full: {},
-    min: {
+module.exports = env => {
+
+    const config = {
+        context: __dirname, // to automatically find tsconfig.json
+        cache: false,
+        entry: path.join(srcPath, 'index.ts'),
+        devtool: 'inline-source-map',
         output: {
-            filename: params.libMinFile
+            library: libraryName,
+            filename: libraryName.toLowerCase() + '.js'
+        },
+        module: {
+            rules: [{
+                test: /\.tsx?$/,
+                loader: 'ts-loader',
+                include: [
+                    srcPath,
+                    path.join(nodeModules, 'eventemitter3')
+                ],
+                options: {
+                    compilerOptions: {
+                        // override dir for webpack context (we're already in libPath)
+                        outDir: './'
+                    },
+                    // By default, ts-loader will not compile .ts files in
+                    // node_modules. You should not need to recompile .ts files
+                    // there, but if you really want to, use this option. Note
+                    // that this option acts as a whitelist - any modules you
+                    // desire to import must be included in the "files" or
+                    // "include" block of your project's tsconfig.json.
+                    allowTsInNodeModules: true
+                    // IMPORTANT! Since ForkTsCheckerWebpackPlugin is already
+                    // doing the type-checking. here we use transpileOnly mode
+                    // to speed-up compilation.
+                    // transpileOnly: true
+                }
+            }]
+        },
+        resolve: {
+            modules: [srcPath, nodeModules],
+            extensions: ['.ts', '.tsx', '.js']
+        },
+        // Configure the console output.
+        stats: {
+            colors: true,
+            modules: false,
+            reasons: true,
+            // suppress "export not found" warnings about re-exported types
+            warningsFilter: /export .* was not found in/
         },
         plugins: [
-            new webpack.optimize.UglifyJsPlugin({
-                compress: { warnings: false }
-            })
-        ]
+            new ForkTsCheckerWebpackPlugin()
+        ],
+        optimization: {
+            minimizer: []
+        }
+    };
+
+    if (env.WEBPACK_OUT === 'coverage') {
+        Object.assign(config.output, {
+            filename: '.' + libraryName + '.cov.js',
+            path: libPath,
+            libraryTarget: 'commonjs2',
+            umdNamedDefine: false
+        });
+    } else {
+
+        // production & development
+        Object.assign(config.output, {
+            path: libPath,
+            publicPath,
+            libraryTarget: 'umd',
+            umdNamedDefine: true,
+            // this is to get rid of 'window is not defined' error.
+            // https://stackoverflow.com/a/49119917/112731
+            globalObject: 'this'
+        });
+
+        if (env.WEBPACK_OUT === 'production') {
+            config.devtool = 'source-map';
+            config.output.filename = libraryName.toLowerCase() + '.min.js';
+            config.optimization.minimizer.push(new UglifyJsPlugin({
+                test: /\.js$/,
+                sourceMap: true,
+                uglifyOptions: {
+                    ie8: false,
+                    ecma: 5,
+                    output: {
+                        comments: false,
+                        beautify: false
+                    },
+                    compress: true,
+                    warnings: true
+                }
+            }));
+        }
     }
+
+    return config;
 };
