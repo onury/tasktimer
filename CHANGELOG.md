@@ -6,13 +6,13 @@ All notable changes to this project will be documented in this file. The format 
 This release includes various **breaking changes**. Please see the [API reference][docs]. Also note that this version is completely re-written in TypeScript.
 
 ### Changed
-- **BREAKING**: `TaskTimer` is no longer a default export. See _Usage_ section in readme.
-- **BREAKING**: `TaskTimer#addTask()` renamed to `TaskTimer#add()`. This no longer accepts a `string` argument. It should either be an options object, a `Task` instance or a callback function. It also accepts an array of these, to add multiple tasks at once.
-- **BREAKING**: The task name is optional (auto-generated when omitted) when task is created via `#add()`. But `callback` is now required.
-- **BREAKING**: `TaskTimer#removeTask()` renamed to `TaskTimer#remove()`.
-- **BREAKING**: `TaskTimer#getTask()` renamed to `TaskTimer#get()`.
-- **BREAKING**: `TaskTimer.Event` enumeration is renamed to `TaskTimer.EventType`.
-- **BREAKING**: `TaskTimer.State` enumeration type is changed to `string`. (meaning enum values are also changed.)
+- **Breaking**: `TaskTimer` is no longer a default export. See _Usage_ section in readme.
+- **Breaking**: `TaskTimer#addTask()` renamed to `TaskTimer#add()`. This no longer accepts a `string` argument. It should either be an options object, a `Task` instance or a callback function. It also accepts an array of these, to add multiple tasks at once.
+- **Breaking**: The task name is optional (auto-generated when omitted) when task is created via `#add()`. But `callback` is now required.
+- **Breaking**: `TaskTimer#removeTask()` renamed to `TaskTimer#remove()`.
+- **Breaking**: `TaskTimer#getTask()` renamed to `TaskTimer#get()`.
+- **Breaking**: `TaskTimer.Event` enumeration is renamed to `TaskTimer.EventType`.
+- **Breaking**: `TaskTimer.State` enumeration type is changed to `string`. (meaning enum values are also changed.)
 
 ### Added
 - Task option: `enabled: boolean` indicating whether the task is currently enabled. This essentially gives you a manual control over execution. The task will always bypass the callback while this is set to `false`.
@@ -27,7 +27,7 @@ This release includes various **breaking changes**. Please see the [API referenc
 - An issue where default task options would not be set in some cases. Fixes issue [#5](https://github.com/onury/tasktimer/issues/5).
 
 ### Removed
-- **BREAKING**: `TaskTimer#resetTask()` is removed. Use `#get(name).reset()` to reset a task.
+- **Breaking**: `TaskTimer#resetTask()` is removed. Use `#get(name).reset()` to reset a task.
 - Dropped bower support. Please use npm to install.
 - (Dev) Removed grunt in favour of npm scripts. Using jest instead of jasmine-core for tests.
 
