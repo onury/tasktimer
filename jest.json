@@ -1,0 +1,33 @@
+{
+    "testEnvironment": "node",
+    "roots": [
+        "<rootDir>/src",
+        "<rootDir>/lib",
+        "<rootDir>/test"
+    ],
+    "transform": {
+        "^.+\\.tsx?$": "ts-jest"
+    },
+    "testMatch": [
+        "**/test/node/(*.)?(spec|test).ts"
+    ],
+    "moduleFileExtensions": [
+        "ts",
+        "tsx",
+        "js"
+    ],
+    "testPathIgnorePatterns": [
+        "/backup/",
+        "/.coverage/"
+    ],
+    "collectCoverageFrom": [
+        "src/**/*.ts",
+        "!src/index.ts",
+        "!src/ITaskOptions.ts",
+        "!src/ITaskTimerOptions.ts",
+        "!src/ITaskTimerEvent.ts",
+        "!src/ITimeInfo.ts",
+        "!src/TaskCallback.ts"
+    ],
+    "coverageDirectory": "./test/.coverage"
+}
