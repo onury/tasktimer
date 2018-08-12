@@ -17,10 +17,11 @@ This release includes various **breaking changes**. Please see the [API referenc
 ### Added
 - Task option: `enabled: boolean` indicating whether the task is currently enabled. This essentially gives you a manual control over execution. The task will always bypass the callback while this is set to `false`.
 - Task option: `tickDelay: number` to specify a number of ticks to allow before running the task for the first time.
+- Task option: `removeOnCompleted: number` indicating whether to remove the task (to free up memory) when task has completed its executions (runs). For this to take affect, the task should have `totalRuns` and/or `stopDate` configured. Default: `false`
 - Event: `TaskTimer.EventType.TASK_COMPLETED` (`"taskCompleted"`) Emitted when a task has completed all of its executions (runs) or reached its stopping date/time (if set). Note that this event will only be fired if the tasks has a `totalRuns` limit or a `stopDate` value set.
 - Event: `TaskTimer.EventType.COMPLETED` (`"completed"`) Emitted when *all* tasks have completed all of their executions (runs) or reached their stopping date/time (if set). Note that this event will only be fired if *each* task either have a `totalRuns` limit or a `stopDate` value set, or both.
 - Timer option: `stopOnCompleted: boolean` indicating whether to automatically stop the timer when all tasks are completed. For this to take affect, all added tasks should have `totalRuns` and/or `stopDate` configured. Default: `false`
-- Timer property: `runCount: boolean` indicating the total number of all task executions (runs).
+- `TaskTimer#runCount: boolean` indicating the total number of all task executions (runs).
 - TypeScript support.
 
 ### Fixed
