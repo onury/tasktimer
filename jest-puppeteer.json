@@ -1,0 +1,17 @@
+{
+    "preset": "jest-puppeteer",
+    "roots": [
+        "<rootDir>/lib",
+        "<rootDir>/test"
+    ],
+    "testMatch": [
+        "**/test/browser/(*.)?(spec|test).js"
+    ],
+    "moduleFileExtensions": [
+        "js"
+    ],
+    "testPathIgnorePatterns": [
+        "/backup/",
+        "/.coverage/"
+    ]
+}
