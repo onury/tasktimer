@@ -433,6 +433,8 @@ class TaskTimer extends EventEmitter {
         let task: TTask;
         let tasks = this._.tasks;
 
+        this._.tickCount += 1;
+
         for (name in tasks) {
             task = tasks[name];
             if (!task) continue;
@@ -446,6 +448,7 @@ class TaskTimer extends EventEmitter {
                     if (task.completed) {
                         this._.completedCount++;
                         this._emit(TaskTimer.EventType.TASK_COMPLETED, task);
+                        if (task.removeOnCompleted) this.remove(task);
                     }
                     if (this._.completedCount === this.taskCount) {
                         this._emit(TaskTimer.EventType.COMPLETED);
@@ -455,7 +458,6 @@ class TaskTimer extends EventEmitter {
             }
         }
 
-        this._.tickCount += 1;
         this._emit(TaskTimer.EventType.TICK);
     }
 
