@@ -57,6 +57,13 @@ declare class Task {
      */
     readonly callback: TaskCallback;
     /**
+     *  Gets or sets whether to remove the task (to free up memory) when task
+     *  has completed its executions (runs). For this to take affect, the task
+     *  should have `totalRuns` and/or `stopDate` configured.
+     *  @type {boolean}
+     */
+    removeOnCompleted: boolean;
+    /**
      *  Specifies whether the task has completed all runs (executions). Note
      *  that if `totalRuns` and/or `stopDate` is not set, this will never return
      *  `true`; since the task has no execution limit set.

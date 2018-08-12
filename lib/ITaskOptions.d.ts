@@ -31,6 +31,13 @@ interface ITaskBaseOptions {
      */
     totalRuns?: number;
     /**
+     *  Specifies whether to remove the task (to free up memory) when task has
+     *  completed its executions (runs). For this to take affect, the task
+     *  should have `totalRuns` and/or `stopDate` configured. Default: `false`
+     *  @type {boolean}
+     */
+    removeOnCompleted?: boolean;
+    /**
      *  The callback function (task) to be executed on each run. The task itself
      *  is passed to this callback, as the first argument.
      *  @type {TaskCallback}
