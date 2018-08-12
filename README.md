@@ -8,7 +8,7 @@
 
 > © 2018, Onur Yıldırım ([@onury](https://github.com/onury)). MIT License.
 
-A timer utility for running periodic tasks on the given interval ticks.
+A timer utility for running periodic tasks on the given interval ticks.  
 This is useful when you want to run or schedule multiple tasks (on a single timer instance).
 
 Universal module. Works in both Node and Browser. Less than **3.3 KB** (minified, gzipped).
@@ -114,7 +114,7 @@ See API documentation and examples [here][docs].
 
 ## Changelog
 
-See [CHANGELOG.md][changelog].
+See [CHANGELOG.md][changelog].  
 *If you're migrating from TaskTimer v1 to v2+, there are various **breaking changes**!..*
 
 ## Contributing
@@ -138,7 +138,7 @@ npm run test!   # builds and runs tests
 npm test        # runs tests without building
 ```
 
-Use included `tslint.json` and `editorconfig` for style and linting.
+Use included `tslint.json` and `editorconfig` for style and linting.  
 Travis build should pass, coverage should not degrade.
 
 ## License
