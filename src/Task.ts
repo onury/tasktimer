@@ -8,6 +8,7 @@ const DEFAULT_TASK_OPTIONS: ITaskOptions = Object.freeze({
     tickDelay: 0,
     tickInterval: 1,
     totalRuns: null,
+    removeOnCompleted: false,
     callback() {}
 });
 
@@ -110,6 +111,19 @@ class Task {
      */
     get callback(): TaskCallback {
         return this._.callback;
+    }
+
+    /**
+     *  Gets or sets whether to remove the task (to free up memory) when task
+     *  has completed its executions (runs). For this to take affect, the task
+     *  should have `totalRuns` and/or `stopDate` configured.
+     *  @type {boolean}
+     */
+    get removeOnCompleted(): boolean {
+        return this._.removeOnCompleted;
+    }
+    set removeOnCompleted(value: boolean) {
+        this._.removeOnCompleted = Boolean(value);
     }
 
     /**
