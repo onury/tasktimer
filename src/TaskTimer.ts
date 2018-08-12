@@ -486,7 +486,7 @@ class TaskTimer extends EventEmitter {
 }
 
 // ---------------------------
-// EXPORT
+// NAMESPACE
 // ---------------------------
 
 // tslint:disable no-namespace
@@ -619,10 +619,14 @@ namespace TaskTimer {
     }
 }
 
+// ---------------------------
+// EXPORT
+// ---------------------------
+
 export { TaskTimer };
 
 // ---------------------------
-// ADDITIONAL DOCUMENTATION
+// HELPER METHODS
 // ---------------------------
 
 /**
