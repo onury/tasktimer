@@ -1,56 +1,70 @@
 {
-  "name": "tasktimer",
-  "version": "1.0.0",
-  "description": "A timer utility for running/scheduling periodic tasks on the given interval ticks. (Node and Browser)",
-  "author": "Onur Yıldırım <onur@cutepilot.com>",
-  "license": "MIT",
-  "main": "dist/tasktimer.min.js",
-  "files": [
-    "dist/"
-  ],
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/onury/tasktimer.git"
-  },
-  "keywords": [
-    "timer",
-    "interval",
-    "tick",
-    "task",
-    "schedule",
-    "timeout",
-    "alarm",
-    "clock",
-    "time",
-    "job",
-    "work",
-    "run"
-  ],
-  "bugs": {
-    "url": "https://github.com/onury/tasktimer/issues"
-  },
-  "homepage": "https://github.com/onury/tasktimer#readme",
-  "devDependencies": {
-    "babel-core": "^6.13.2",
-    "babel-eslint": "^6.1.2",
-    "babel-loader": "^6.2.4",
-    "babel-preset-es2015": "^6.13.2",
-    "eslint": "^3.3.1",
-    "eslint-config-xo": "^0.15.3",
-    "grunt": "^1.0.1",
-    "grunt-contrib-jasmine": "^1.0.3",
-    "grunt-contrib-watch": "^1.0.0",
-    "grunt-docma": "^0.6.4",
-    "grunt-jasmine-nodejs": "^1.5.2",
-    "grunt-webpack": "^1.0.14",
-    "matchdep": "^1.0.1",
-    "webpack": "^1.13.1",
-    "webpack-dev-server": "^1.14.1"
-  },
-  "dependencies": {
-    "eventemitter3": "^1.2.0"
-  }
+    "name": "tasktimer",
+    "version": "1.0.0",
+    "description": "A timer utility for running/scheduling periodic tasks on the given interval ticks. (Node and Browser)",
+    "author": "Onur Yıldırım <onur@cutepilot.com>",
+    "license": "MIT",
+    "main": "lib/tasktimer.min.js",
+    "files": [
+        "lib/",
+        "LICENSE"
+    ],
+    "scripts": {
+        "clean": "rimraf ./lib",
+        "build:dev": "webpack --mode=development --env.WEBPACK_OUT=development --progress --colors",
+        "build:prod": "webpack --mode=production --env.WEBPACK_OUT=production --progress --colors",
+        "build": "npm run clean && npm run build:dev && npm run build:prod",
+        "test:node": "jest --verbose --no-cache -c ./jest.json",
+        "test:node!": "npm run build:prod && jest --verbose --no-cache -c ./jest.json",
+        "test:browser": "jest --verbose --no-cache -c ./jest-puppeteer.json",
+        "test:browser!": "npm run build:prod && jest --verbose --no-cache -c ./jest-puppeteer.json",
+        "test:serve": "node ./test/_server",
+        "test": "npm run test:node && npm run test:browser",
+        "test!": "npm run build:prod && npm run test:node && npm run test:browser",
+        "docs": "docma"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/onury/tasktimer.git"
+    },
+    "keywords": [
+        "timer",
+        "interval",
+        "tick",
+        "task",
+        "schedule",
+        "timeout",
+        "alarm",
+        "clock",
+        "time",
+        "job",
+        "work",
+        "run"
+    ],
+    "bugs": {
+        "url": "https://github.com/onury/tasktimer/issues"
+    },
+    "homepage": "https://github.com/onury/tasktimer#readme",
+    "devDependencies": {
+        "@types/expect-puppeteer": "^2.2.4",
+        "@types/jest": "^23.3.1",
+        "@types/jest-environment-puppeteer": "^2.2.1",
+        "@types/puppeteer": "^1.6.0",
+        "docma": "^2.1.0",
+        "express": "^4.16.3",
+        "fork-ts-checker-webpack-plugin": "^0.4.7",
+        "jest-cli": "^23.4.2",
+        "jest-puppeteer": "^3.2.1",
+        "puppeteer": "^1.7.0",
+        "rimraf": "^2.6.2",
+        "ts-jest": "^23.1.3",
+        "ts-loader": "^4.4.2",
+        "typescript": "^3.0.1",
+        "uglifyjs-webpack-plugin": "^1.2.7",
+        "webpack": "^4.16.5",
+        "webpack-cli": "^3.1.0"
+    },
+    "dependencies": {
+        "eventemitter3": "^3.1.0"
+    }
 }
