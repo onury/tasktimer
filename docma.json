@@ -1,0 +1,105 @@
+{
+    "debug": 5,
+    "jsdoc": {
+        "encoding": "utf8",
+        "recurse": false,
+        "pedantic": false,
+        "access": ["public"],
+        "package": null,
+        "module": true,
+        "undocumented": false,
+        "undescribed": false,
+        "ignored": false,
+        "hierarchy": true,
+        "sort": "grouped",
+        "relativePath": null,
+        "filter": null,
+        "allowUnknownTags": true,
+        "plugins": [],
+        "includePattern": ".+\\.js(doc|x)?$"
+    },
+    "markdown": {
+        "gfm": true,
+        "tables": true,
+        "breaks": false,
+        "pedantic": false,
+        "sanitize": false,
+        "smartLists": true,
+        "smartypants": false,
+        "tasks": true,
+        "emoji": true
+    },
+    "app": {
+        "title": "TaskTimer",
+        "meta": null,
+        "base": "/tasktimer",
+        "entrance": "content:guide",
+        "routing": "query",
+        "server": "github"
+    },
+    "template": {
+        "path": "zebra",
+        "options": {
+            "title": {
+                "label": "TaskTimer",
+                "href": "/tasktimer/?"
+            },
+            "logo": null,                   // URL String or { dark: String, light: String }
+            "sidebar": {
+                "enabled": true,
+                "outline": "tree",          // "flat" | "tree"
+                "collapsed": false,
+                "toolbar": true,
+                "itemsFolded": false,
+                "itemsOverflow": "crop",    // "crop" | "shrink"
+                "badges": true,             // true | false | <string-value>
+                "search": true,
+                "animations": true
+            },
+            "symbols": {
+                "autoLink": true,           // "internal" | "external" | true (both)
+                "params": "list",           // "list" | "table"
+                "enums": "list",            // "list" | "table"
+                "props": "list",            // "list" | "table"
+                "meta": false
+            },
+            "contentView": {
+                "bookmarks": "h1,h2,h3"
+            },
+            "navbar": {
+                "enabled": true,
+                "fixed": true,
+                "dark": false,
+                "animations": true,
+                "menu": [
+                    {
+                        "iconClass": "ico-mouse-pointer",
+                        "label": "Guide",
+                        "href": "./?content=guide"
+                    },
+                    {
+                        "iconClass": "ico-book",
+                        "label": "API Reference",
+                        "href": "./?api=tasktimer"
+                    },
+                    {
+                        "iconClass": "ico-md ico-github",
+                        "label": "GitHub",
+                        "href": "https://github.com/onury/tasktimer",
+                        "target": "_blank"
+                    }
+                ]
+            }
+        }
+    },
+    "src": [
+        {
+            "tasktimer": [
+                "./lib/tasktimer.js"
+            ],
+            "guide": "./README.md"
+        },
+        "./CHANGELOG.md"
+    ],
+    "dest": "../onury.github.io/tasktimer"
+}
