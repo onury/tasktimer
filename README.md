@@ -11,7 +11,7 @@
 A timer utility for running periodic tasks on the given interval ticks.
 This is useful when you want to run or schedule multiple tasks (on a single timer instance).
 
-Universal module. Works in both Node and Browser. Less than **3KB** (minified, gzipped).
+Universal module. Works in both Node and Browser. Less than **3.3 KB** (minified, gzipped).
 
 _In order to build on more solid foundations, this library (v2.0.0+) is completely re-written in TypeScript._
 
