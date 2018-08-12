@@ -142,7 +142,7 @@ Use included `tslint.json` and `editorconfig` for style and linting.
 Travis build should pass, coverage should not degrade.
 
 ## License
-MIT.
+[MIT][LICENSE].
 
 [docs]:https://onury.io/tasktimer/?api=tasktimer
-[changelog]:https://onury.io/tasktimer/?content=changelog
+[changelog]:CHANGELOG.md
