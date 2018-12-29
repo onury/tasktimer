@@ -71,6 +71,8 @@
             "./node_modules"
         ],
         "types": [
+            "node",
+            "jest"
             // "./node_modules/eventemitter3/index.d.ts"
         ]
     },
