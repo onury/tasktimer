@@ -13,6 +13,14 @@ interface ITaskTimerOptions {
      */
     interval?: number;
     /**
+     *  Specifies whether the timer should auto-adjust the delay between ticks
+     *  if it's off due to task/CPU loads or clock-drifts. Note that precision
+     *  will be as high as possible but it still can be off by a few
+     *  milliseconds; depending on the CPU. Default: `true`
+     *  @type {Boolean}
+     */
+    precision?: boolean;
+    /**
      *  Specifies whether to automatically stop the timer when all tasks are
      *  completed. For this to take affect, all added tasks should have
      *  `totalRuns` and/or `stopDate` configured. Default: `false`
