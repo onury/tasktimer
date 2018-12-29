@@ -1,4 +1,7 @@
-import { ITaskBaseOptions, ITaskOptions, TaskCallback } from '.';
+/* tslint:disable:no-empty */
+
+import { ITaskBaseOptions, ITaskOptions, ITaskTimerEvent, TaskCallback, TaskTimer } from '.';
+import { utils } from './utils';
 
 /**
  *  @private
@@ -8,8 +11,9 @@ const DEFAULT_TASK_OPTIONS: ITaskOptions = Object.freeze({
     tickDelay: 0,
     tickInterval: 1,
     totalRuns: null,
+    immediate: false,
     removeOnCompleted: false,
-    callback() {}
+    callback(): void {}
 });
 
 /**
@@ -17,6 +21,11 @@ const DEFAULT_TASK_OPTIONS: ITaskOptions = Object.freeze({
  *  required to run a task.
  */
 class Task {
+
+    /**
+     *  @private
+     */
+    private _timer: TaskTimer;
 
     /**
      *  @private
@@ -39,11 +48,11 @@ class Task {
     // ---------------------------
 
     /**
-     *  Gets the unique name of the task.
+     *  Gets the unique ID of the task.
      *  @type {string}
      */
-    get name(): string {
-        return this._.name;
+    get id(): string {
+        return this._.id;
     }
 
     /**
@@ -56,7 +65,7 @@ class Task {
         return this._.enabled;
     }
     set enabled(value: boolean) {
-        this._.enabled = Boolean(value);
+        this._.enabled = utils.getBool(value, true);
     }
 
     /**
@@ -68,7 +77,7 @@ class Task {
         return this._.tickDelay;
     }
     set tickDelay(value: number) {
-        this._.tickDelay = value;
+        this._.tickDelay = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.tickDelay);
     }
 
     /**
@@ -82,7 +91,7 @@ class Task {
         return this._.tickInterval;
     }
     set tickInterval(value: number) {
-        this._.tickInterval = value;
+        this._.tickInterval = utils.getNumber(value, 1, DEFAULT_TASK_OPTIONS.tickInterval);
     }
 
     /**
@@ -94,7 +103,20 @@ class Task {
         return this._.totalRuns;
     }
     set totalRuns(value: number) {
-        this._.totalRuns = value;
+        this._.totalRuns = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.totalRuns);
+    }
+
+    /**
+     *  Specifies whether to wrap callback in a `setImmediate()` call before
+     *  executing. This can be useful if the task is not doing any I/O or using
+     *  any JS timers but synchronously blocking the event loop.
+     *  @type {boolean}
+     */
+    get immediate(): boolean {
+        return this._.immediate;
+    }
+    set immediate(value: boolean) {
+        this._.immediate = utils.getBool(value, false);
     }
 
     /**
@@ -123,7 +145,7 @@ class Task {
         return this._.removeOnCompleted;
     }
     set removeOnCompleted(value: boolean) {
-        this._.removeOnCompleted = Boolean(value);
+        this._.removeOnCompleted = utils.getBool(value, false);
     }
 
     /**
@@ -133,6 +155,7 @@ class Task {
      *  @type {boolean}
      */
     get completed(): boolean {
+        // TODO: check stopDate here
         const canRun: boolean = !this.totalRuns || this.currentRuns < this.totalRuns;
         return !canRun;
     }
@@ -149,7 +172,7 @@ class Task {
     reset(options?: ITaskBaseOptions): Task {
         this._.currentRuns = 0;
         if (options) {
-            if ((options as any).name) throw new Error('Cannot rename a task.');
+            if ((options as any).id) throw new Error('Cannot change ID of a task.');
             this._init(options);
         }
         return this;
@@ -161,7 +184,9 @@ class Task {
      *  @private
      */
     toJSON(): any {
-        const obj = Object.assign({}, this._);
+        const obj = {
+            ...this._
+        };
         delete obj.callback;
         return obj;
     }
@@ -171,13 +196,75 @@ class Task {
     // ---------------------------
 
     /**
+     *  Only used by `TaskTimer`.
      *  @private
      */
-    // @ts-ignore: TS6133: '_run' is declared but its value is never read. (private but used in TaskTimer)
-    private _run(onRun: Function): void {
-        if (!this.enabled || this.completed) return;
+    // @ts-ignore: TS6133: declared but never read.
+    private _setTimer(timer: TaskTimer): void {
+        this._timer = timer;
+    }
+
+    /**
+     *  @private
+     */
+    private _emit(type: TaskTimer.EventType, object: Task | Error): void {
+        const event: ITaskTimerEvent = {
+            type,
+            source: this
+        };
+        if (object instanceof Task) {
+            event.data = object;
+        } else {
+            event.error = object;
+        }
+        this._timer.emit(type, event);
+    }
+
+    /**
+     *  @private
+     */
+    private _done(): void {
         this._.currentRuns += 1;
-        this.callback.apply(null, [this]);
+        if (this.completed) (this._timer as any)._taskCompleted(this);
+    }
+
+    /**
+     *  @private
+     */
+    private _execCallback(timer: TaskTimer): void {
+        try {
+            const o = this.callback.apply(null, [this, this._done]);
+            if (this.callback.length >= 2) {
+                // handled by _done() (called within the task callback)
+            } else if (utils.isPromise(o)) {
+                o.then(() => {
+                    this._done();
+                })
+                .catch((err: Error) => {
+                    this._emit(TaskTimer.EventType.TASK_ERROR, err);
+                });
+            } else {
+                this._done();
+            }
+        } catch (err) {
+            this._emit(TaskTimer.EventType.TASK_ERROR, err);
+        }
+    }
+
+    /**
+     *  Only used by `TaskTimer`.
+     *  @private
+     */
+    // @ts-ignore: TS6133: declared but never read.
+    private _run(onRun: Function | any, timer: TaskTimer): void {
+        if (!this.enabled || this.completed) return;
+
+        if (this.immediate) {
+            utils.setImmediate(() => this._execCallback(timer));
+        } else {
+            this._execCallback(timer);
+        }
+
         onRun();
     }
 
@@ -185,15 +272,19 @@ class Task {
      *  @private
      */
     private _init(options: ITaskOptions): void {
-        if (!options || !options.name) {
-            throw new Error('A unique task name is required. Use TaskTimer#add() to create a task with auto-generated name.');
+        if (!options || !options.id) {
+            throw new Error('A unique task ID is required. Use TaskTimer#add() to create a task with auto-generated unique ID.');
         }
 
         if (typeof options.callback !== 'function') {
             throw new Error('A callback function is required for a task to be run.');
         }
 
-        this._ = Object.assign({ currentRuns: 0 }, DEFAULT_TASK_OPTIONS, options);
+        this._ = {
+            currentRuns: 0,
+            ...DEFAULT_TASK_OPTIONS,
+            ...(options || {})
+        };
     }
 }
 
