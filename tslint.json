@@ -1,49 +1,174 @@
 {
     "rules": {
-        "class-name": true,
-        "comment-format": [true, "check-space"],
-        "indent": [true, "spaces"],
-        "no-duplicate-variable": true,
-        "no-eval": true,
+
+        // ----------------------------
+        // TypeScript-specific
+        // ----------------------------
+
+        "adjacent-overload-signatures": true,
+        "ban-types": [true, ["Object", "Use {} instead."], ["String"]],
+        "member-access": [true, "no-public"],
+        "member-ordering": [true, {"order": "fields-first"}],
+        "no-any": false,
+        "no-empty-interface": false,
+        "no-import-side-effect": true,
+        "no-inferrable-types": [true, "ignore-params"], // "ignore-properties"
         "no-internal-module": true,
-        "no-trailing-whitespace": true,
+        "no-magic-numbers": [false],
+        // "no-namespace": [true, "allow-declarations"],
+        "no-non-null-assertion": true,
+        "no-reference": true,
+        // "no-unnecessary-type-assertion": true, // rule requires type information.
+        "no-var-requires": true,
+        "only-arrow-functions": [true, "allow-declarations", "allow-named-functions"],
+        "prefer-for-of": true,
+        // "promise-function-async": true, // rule requires type information
+        "typedef": [true, "call-signature", "parameter", "member-variable-declaration"],
+        "typedef-whitespace": [
+            true,
+            {
+                "call-signature": "nospace",
+                "index-signature": "nospace",
+                "parameter": "nospace",
+                "property-declaration": "nospace",
+                "variable-declaration": "nospace"
+            },
+            {
+                "call-signature": "onespace",
+                "index-signature": "onespace",
+                "parameter": "onespace",
+                "property-declaration": "onespace",
+                "variable-declaration": "onespace"
+            }
+        ],
+        "unified-signatures": true,
+
+        // ----------------------------
+        // Functionality
+        // ----------------------------
+
+        // "await-promise": [true, "Thenable"], // rule requires type information
+        // "ban": [],
+        "curly": [true, "ignore-same-line"],
+        "forin": true,
+        // "import-blacklist": [true, "rxjs", "lodash"],
+        "label-position": true,
+        "no-arg": true,
+        "no-bitwise": true,
+        "no-conditional-assignment": true,
+        // "no-console": [true, "log", "error"],
+        "no-construct": true,
+        "no-debugger": true,
+        "no-duplicate-super": true,
+        "no-duplicate-variable": [true, "check-parameters"],
+        "no-empty": [true, "allow-empty-catch"],
+        "no-eval": true,
+        // "no-floating-promises": [true, "JQueryPromise"], // rule requires type information
+        // "no-for-in-array": true, // rule requires type information
+        // "no-inferred-empty-object-type": true, // rule requires type information
+        "no-invalid-template-strings": true,
+        "no-invalid-this": [true, "check-function-in-method"],
+        "no-misused-new": true,
+        "no-null-keyword": false,
+        "no-object-literal-type-assertion": true,
+        "no-shadowed-variable": true,
+        "no-sparse-arrays": true,
+        "no-string-literal": true,
+        "no-string-throw": true,
+        "no-switch-case-fall-through": true,
+        "no-this-assignment": [true, {"allowed-names": ["^self$"], "allow-destructuring": true}],
+        // "no-unbound-method": [true, "ignore-static"], // rule requires type information
+        // "no-unsafe-any": true, // rule requires type information
+        "no-unsafe-finally": true,
+        "no-unused-expression": [true, "allow-fast-null-checks"],
+        // "no-unused-variable": [true, {"ignore-pattern": "^_"}], // rule requires type information
+        // "no-use-before-declare": true, // rule requires type information
         "no-var-keyword": true,
-        "one-line": [true, "check-open-brace", "check-whitespace"],
-        "quotemark": [true, "single"],
-        "semicolon": false,
-        "triple-equals": [true, "allow-null-check"],
-        "typedef-whitespace": [true, {
-            "call-signature": "nospace",
-            "index-signature": "nospace",
-            "parameter": "nospace",
-            "property-declaration": "nospace",
-            "variable-declaration": "nospace"
-        }],
-        "variable-name": [true, "ban-keywords"],
+        // "no-void-expression": [true, "ignore-arrow-function-shorthand"], // rule requires type information
+        "prefer-conditional-expression": true,
+        "prefer-object-spread": true,
+        "radix": true,
+        // "restrict-plus-operands": true, // rule requires type information
+        // "strict-boolean-expressions": [true, "allow-boolean-or-undefined"], // rule requires type information
+        // "strict-type-predicates": true, // does not work without --strictNullChecks // rule requires type information
+        "switch-default": true,
+        "triple-equals": true,
+        // "use-default-type-parameter": true, // rule requires type information
+        "use-isnan": true,
+
+        // ----------------------------
+        // Maintainability
+        // ----------------------------
+
+        "cyclomatic-complexity": [true, 30],
+        // "deprecation": true, // rule requires type information
+        "eofline": true,
+        "linebreak-style": [true, "LF"],
+        "max-classes-per-file": [true, 1],
+        "max-file-line-count": [true, 750],
+        "max-line-length": [true, 135],
+        "no-default-export": true,
+        "no-mergeable-namespace": true,
+        "no-require-imports": true,
+        "object-literal-sort-keys": [false, "ignore-case"],
+        "prefer-const": [true, {"destructuring": "all"}],
+        "trailing-comma": [true, {"multiline": "never", "singleline": "never"}],
+
+        // ----------------------------
+        // Style
+        // ----------------------------
+
+        "align": [true, "parameters", "statements"],
+        // "array-type": [true, "array"],
+        "arrow-parens": [true, "ban-single-arg-parens"],
+        "arrow-return-shorthand": [true],
+        "binary-expression-operand-order": true,
+        "callable-types": true,
+        "class-name": true,
+        "comment-format": [true, "check-space", {"ignore-words": ["TODO", "HACK", "NOTE"]}],
+        // "completed-docs": [true, "enums", "enum-members", "functions", "methods", "properties", "interfaces", "classes"], // rule requires type information
+        "encoding": true,
+        // "file-header": [false],
+        "import-spacing": true,
+        "interface-name": [true, "always-prefix"],
+        "interface-over-type-literal": true,
+        "jsdoc-format": true,
+        // "match-default-export-name": true, // rule requires type information
+        // "newline-before-return": true,
+        "new-parens": true,
+        "no-angle-bracket-type-assertion": true,
+        // "no-boolean-literal-compare": true, // rule requires type information
+        "no-consecutive-blank-lines": [true, 1],
+        "no-irregular-whitespace": true,
+        "no-parameter-properties": true,
+        "no-reference-import": true,
+        "no-trailing-whitespace": [true, "ignore-jsdoc"],
+        "no-unnecessary-callback-wrapper": true,
+        "no-unnecessary-initializer": true,
+        // "no-unnecessary-qualifier": true, // rule requires type information
+        "number-literal-format": true,
+        "object-literal-key-quotes": [true, "as-needed"],
+        "object-literal-shorthand": true,
+        "one-line": [false],
+        "one-variable-per-declaration": [true, "ignore-for-loop"],
+        "ordered-imports": [true],
+        "prefer-function-over-method": [true, "allow-protected", "allow-public"],
+        "prefer-method-signature": true,
+        "prefer-switch": [true, {"min-cases": 4}],
+        // "prefer-template": [true, "allow-single-concat"],
+        "quotemark": [true, "single", "avoid-escape", "avoid-template"],
+        // "return-undefined": true, // rule requires type information
+        "semicolon": [true, "always"],
+        "space-before-function-paren": [true, {"anonymous": "always", "named": "never", "asyncArrow": "always"}],
+        "switch-final-break": true,
+        "type-literal-delimiter": true,
+        "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore", "allow-pascal-case"],
         "whitespace": [
             true,
             "check-branch",
             "check-decl",
             "check-operator",
             "check-separator"
-        ]
-    },
-    "jsRules": {
-        "indent": [true, "spaces"],
-        "no-duplicate-variable": true,
-        "no-eval": true,
-        "no-trailing-whitespace": true,
-        "one-line": [true, "check-open-brace", "check-whitespace"],
-        "quotemark": [true, "double"],
-        "semicolon": false,
-        "triple-equals": [true, "allow-null-check"],
-        "variable-name": [true, "ban-keywords"],
-        "whitespace": [true,
-            "check-branch",
-            "check-decl",
-            "check-operator",
-            "check-separator",
-            "check-type"
         ]
     }
 }
