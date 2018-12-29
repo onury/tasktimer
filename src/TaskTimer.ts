@@ -1,16 +1,20 @@
+/* tslint:disable:max-file-line-count */
+
 // dep modules
 import { EventEmitter } from 'eventemitter3';
 
 // own modules
 import {
-    ITaskTimerOptions, ITaskOptions, Task as TTask, TaskCallback, ITaskTimerEvent, ITimeInfo
+    ITaskOptions, ITaskTimerEvent, ITaskTimerOptions, ITimeInfo, Task as TTask, TaskCallback
 } from '.';
+import { utils } from './utils';
 
 /**
  *  @private
  */
 const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
     interval: 1000,
+    precision: true,
     stopOnCompleted: false
 });
 
@@ -34,10 +38,11 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
 class TaskTimer extends EventEmitter {
 
     /**
+     *  Inner storage for Tasktimer.
      *  @private
      */
     private _: {
-        options: ITaskTimerOptions;
+        opts: ITaskTimerOptions;
         state: TaskTimer.State;
         tasks: { [k: string]: TTask };
         tickCount: number;
@@ -45,12 +50,26 @@ class TaskTimer extends EventEmitter {
         startTime: number;
         stopTime: number;
         completedCount: number;
+        // below are needed for precise interval. we need to inspect ticks and
+        // elapsed time difference within the latest "continuous" session. in
+        // other words, paused time should be ignored in these calculations. so
+        // we need varibales saved after timer is resumed.
+        resumeTime: number;
+        hrResumeTime: [number, number];
+        tickCountAfterResume: number;
     };
 
     /**
+     *  setTimeout reference used by the timmer.
      *  @private
      */
-    private _timer: any;
+    private _timeoutRef: any;
+
+    /**
+     *  setImmediate reference used by the timer.
+     *  @private
+     */
+    private _immediateRef: any;
 
     // ---------------------------
     // CONSTRUCTOR
@@ -67,7 +86,6 @@ class TaskTimer extends EventEmitter {
      *  resolution for all tasks. If you are running heavy tasks, lower interval
      *  requires higher CPU power. This value can be updated any time by setting
      *  the `interval` property on the instance.
-     *  @returns {TaskTimer}
      *
      *  @example
      *  const timer = new TaskTimer(1000); // milliseconds
@@ -78,11 +96,11 @@ class TaskTimer extends EventEmitter {
      *  });
      *  // Or add a task named 'heartbeat' that runs every 5 ticks and a total of 10 times.
      *  const task = {
-     *      name: 'heartbeat',
+     *      id: 'heartbeat',
      *      tickInterval: 5, // ticks
      *      totalRuns: 10,   // times
      *      callback: function (task) {
-     *          console.log(task.name + ' task has run ' + task.currentRuns + ' times.');
+     *          console.log(task.id + ' task has run ' + task.currentRuns + ' times.');
      *      }
      *  };
      *  timer.addTask(task).start();
@@ -90,13 +108,17 @@ class TaskTimer extends EventEmitter {
     constructor(options?: ITaskTimerOptions | number) {
         super();
 
-        options = typeof options !== 'number'
-            ? Object.assign({}, DEFAULT_TIMER_OPTIONS, options || {})
-            : Object.assign({}, DEFAULT_TIMER_OPTIONS, { interval: options });
-
-        this._timer = null;
+        this._timeoutRef = null;
+        this._immediateRef = null;
         this._reset();
-        this._.options = options;
+
+        this._.opts = {};
+        const opts = typeof options === 'number'
+            ? { interval: options }
+            : options || {} as any;
+        this.interval = opts.interval;
+        this.precision = opts.precision;
+        this.stopOnCompleted = opts.stopOnCompleted;
     }
 
     // ---------------------------
@@ -110,13 +132,28 @@ class TaskTimer extends EventEmitter {
      *  value operates as the base resolution for all tasks. If you are running
      *  heavy tasks; lower interval requires higher CPU power.
      *  @memberof TaskTimer
-     *  @type {Number}
+     *  @type {number}
      */
     get interval(): number {
-        return this._.options.interval;
+        return this._.opts.interval;
     }
     set interval(value: number) {
-        this._.options.interval = value || DEFAULT_TIMER_OPTIONS.interval;
+        this._.opts.interval = utils.getNumber(value, 20, DEFAULT_TIMER_OPTIONS.interval);
+    }
+
+    /**
+     *  Gets or sets whether the timer should auto-adjust the delay between
+     *  ticks if it's off due to task load. Note that precision will be as high
+     *  as possible but it still can be off by a few milliseconds; depending on
+     *  the CPU or the load.
+     *  @memberof TaskTimer
+     *  @type {boolean}
+     */
+    get precision(): boolean {
+        return this._.opts.precision;
+    }
+    set precision(value: boolean) {
+        this._.opts.precision = utils.getBool(value, DEFAULT_TIMER_OPTIONS.precision);
     }
 
     /**
@@ -128,10 +165,10 @@ class TaskTimer extends EventEmitter {
      *  @type {boolean}
      */
     get stopOnCompleted(): boolean {
-        return this._.options.stopOnCompleted;
+        return this._.opts.stopOnCompleted;
     }
     set stopOnCompleted(value: boolean) {
-        this._.options.stopOnCompleted = Boolean(value);
+        this._.opts.stopOnCompleted = utils.getBool(value, DEFAULT_TIMER_OPTIONS.stopOnCompleted);
     }
 
     /**
@@ -200,15 +237,15 @@ class TaskTimer extends EventEmitter {
     // ---------------------------
 
     /**
-     *  Gets the task with the given name.
+     *  Gets the task with the given ID.
      *  @memberof TaskTimer
      *
-     *  @param {String} name - Name of the task.
+     *  @param {String} id - ID of the task.
      *
      *  @returns {Task}
      */
-    get(name: string): TTask {
-        return this._.tasks[name] || null;
+    get(id: string): TTask {
+        return this._.tasks[id] || null;
     }
 
     /**
@@ -244,18 +281,18 @@ class TaskTimer extends EventEmitter {
      *  @throws {Error} - If a task with the given name does not exist.
      */
     remove(task: string | TTask): TaskTimer {
-        const name: string = typeof task === 'string' ? task : task.name;
-        task = this.get(name);
+        const id: string = typeof task === 'string' ? task : task.id;
+        task = this.get(id);
 
-        if (!name || !task) {
-            throw new Error(`No tasks exist with name '${name}'.`);
+        if (!id || !task) {
+            throw new Error(`No tasks exist with ID: '${id}'.`);
         }
 
         // first decrement completed tasks count if this is a completed task.
         if (task.completed && this._.completedCount > 0) this._.completedCount--;
 
-        this._.tasks[name] = null;
-        delete this._.tasks[name];
+        this._.tasks[id] = null;
+        delete this._.tasks[id];
         this._emit(TaskTimer.EventType.TASK_REMOVED, task);
         return this;
     }
@@ -271,13 +308,14 @@ class TaskTimer extends EventEmitter {
      */
     start(): TaskTimer {
         this._stop();
-        this._.startTime = Date.now();
-        this._.stopTime = 0;
+        this._.state = TaskTimer.State.RUNNING;
         this._.tickCount = 0;
         this._.runCount = 0;
-        this._run();
-        this._.state = TaskTimer.State.RUNNING;
+        this._.stopTime = 0;
+        this._markTime();
+        this._.startTime = Date.now();
         this._emit(TaskTimer.EventType.STARTED);
+        this._run();
         return this;
     }
 
@@ -305,10 +343,15 @@ class TaskTimer extends EventEmitter {
      *  @returns {TaskTimer}
      */
     resume(): TaskTimer {
+        if (this.state === TaskTimer.State.IDLE) {
+            this.start();
+            return this;
+        }
         if (this.state !== TaskTimer.State.PAUSED) return this;
-        this._run();
+        this._markTime();
         this._.state = TaskTimer.State.RUNNING;
         this._emit(TaskTimer.EventType.RESUMED);
+        this._run();
         return this;
     }
 
@@ -381,16 +424,17 @@ class TaskTimer extends EventEmitter {
             };
         }
 
-        if (_type(options) === 'object' && !options.name) {
-            (options as ITaskOptions).name = this._getNewTaskName();
+        if (_type(options) === 'object' && !options.id) {
+            (options as ITaskOptions).id = this._getUniqueTaskID();
         }
 
-        if (this.get(options.name)) {
-            throw new Error(`A task with name '${options.name}' already exists.`);
+        if (this.get(options.id)) {
+            throw new Error(`A task with name '${options.id}' already exists.`);
         }
 
         const task = options instanceof TTask ? options : new TTask(options);
-        this._.tasks[task.name] = task;
+        (task as any)._setTimer(this);
+        this._.tasks[task.id] = task;
         this._emit(TaskTimer.EventType.TASK_ADDED, task);
         return this;
     }
@@ -400,9 +444,14 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _stop(): void {
-        if (this._timer) {
-            clearInterval(this._timer);
-            this._timer = null;
+        this._.tickCountAfterResume = 0;
+        if (this._timeoutRef) {
+            clearTimeout(this._timeoutRef);
+            this._timeoutRef = null;
+        }
+        if (this._immediateRef) {
+            utils.clearImmediate(this._immediateRef);
+            this._immediateRef = null;
         }
     }
 
@@ -411,17 +460,35 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _reset(): void {
-        this._stop();
         this._ = {
-            options: (this._ || {} as any).options,
+            opts: (this._ || {} as any).opts,
             state: TaskTimer.State.IDLE,
             tasks: {},
             tickCount: 0,
             runCount: 0,
             startTime: 0,
             stopTime: 0,
-            completedCount: 0
+            completedCount: 0,
+            resumeTime: 0,
+            hrResumeTime: null,
+            tickCountAfterResume: 0
         };
+        this._stop();
+    }
+
+    /**
+     *  Called (by Task instance) when it has completed all of its runs.
+     *  @private
+     */
+    // @ts-ignore: TS6133: declared but never read.
+    private _taskCompleted(task: TTask): void {
+        this._.completedCount++;
+        this._emit(TaskTimer.EventType.TASK_COMPLETED, task);
+        if (task.removeOnCompleted) this.remove(task);
+        if (this._.completedCount === this.taskCount) {
+            this._emit(TaskTimer.EventType.COMPLETED);
+            if (this.stopOnCompleted) this.stop();
+        }
     }
 
     /**
@@ -429,36 +496,60 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _tick(): void {
-        let name: string;
+        this._.state = TaskTimer.State.RUNNING;
+
+        let id: string;
         let task: TTask;
-        let tasks = this._.tasks;
+        const tasks = this._.tasks;
 
         this._.tickCount += 1;
+        this._.tickCountAfterResume += 1;
 
-        for (name in tasks) {
-            task = tasks[name];
-            if (!task) continue;
-
-            if (this.tickCount % task.tickInterval === 0) {
-                // below will not execute if task is disabled or already
-                // completed.
-                (task as any)._run(() => {
-                    this._.runCount += 1;
-                    this._emit(TaskTimer.EventType.TASK, task);
-                    if (task.completed) {
-                        this._.completedCount++;
-                        this._emit(TaskTimer.EventType.TASK_COMPLETED, task);
-                        if (task.removeOnCompleted) this.remove(task);
-                    }
-                    if (this._.completedCount === this.taskCount) {
-                        this._emit(TaskTimer.EventType.COMPLETED);
-                        if (this.stopOnCompleted) this.stop();
-                    }
-                });
+        // tslint:disable:forin
+        for (id in tasks) {
+            task = tasks[id];
+            if (!task
+                    || this.tickCount < task.tickDelay // wait for tickDelay if set
+                    || (this.tickCount - task.tickDelay) % task.tickInterval !== 0) {
+                continue;
             }
+
+            // below will not execute if task is disabled or already
+            // completed.
+            (task as any)._run(() => {
+                this._.runCount += 1;
+                this._emit(TaskTimer.EventType.TASK, task);
+            }, this);
         }
 
         this._emit(TaskTimer.EventType.TICK);
+        this._run();
+    }
+
+    /**
+     *  Marks the resume (or start) time in milliseconds or high-resolution time
+     *  if available.
+     *  @private
+     */
+    private _markTime(): void {
+        if (utils.BROWSER) {
+            this._.resumeTime = Date.now();
+        } else {
+            this._.hrResumeTime = process.hrtime();
+        }
+    }
+
+    /**
+     *  Gets the time difference in milliseconds sinct the last resume or start
+     *  time.
+     *  @private
+     */
+    private _getTimeDiff(): number {
+        // Date.now() is ~2x faster than Date#getTime()
+        if (utils.BROWSER) return Date.now() - this._.resumeTime;
+
+        const hrDiff = process.hrtime(this._.hrResumeTime);
+        return Math.ceil((hrDiff[0] * 1000) + (hrDiff[1] / 1e6));
     }
 
     /**
@@ -466,24 +557,39 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _run(): void {
-        this._timer = setInterval(() => {
-            this._tick();
-            this._.state = TaskTimer.State.RUNNING;
-        }, this._.options.interval);
+        if (this.state !== TaskTimer.State.RUNNING) return;
+
+        let interval = this.interval;
+        // we'll get a precise interval by checking if our clock is already
+        // drifted.
+        if (this.precision) {
+            const diff = this._getTimeDiff();
+            // did we reach this expected tick count for the given time period?
+            // calculated count should not be greater than tickCountAfterResume
+            if (Math.floor(diff / interval) > this._.tickCountAfterResume) {
+                // if we're really late, run immediately!
+                this._immediateRef = utils.setImmediate(() => this._tick());
+                return;
+            }
+            // if we still have time but a bit off, update next interval.
+            interval = interval - (diff % interval);
+        }
+
+        this._timeoutRef = setTimeout(() => this._tick(), interval);
     }
 
     /**
-     *  Gets a unique task name.
+     *  Gets a unique task ID.
      *  @private
      */
-    private _getNewTaskName(): string {
+    private _getUniqueTaskID(): string {
         let num: number = this.taskCount;
-        let name: string;
-        while (!name || this.get(name)) {
+        let id: string;
+        while (!id || this.get(id)) {
             num++;
-            name = 'task-' + num;
+            id = 'task' + num;
         }
-        return name;
+        return id;
     }
 }
 
@@ -491,7 +597,7 @@ class TaskTimer extends EventEmitter {
 // NAMESPACE
 // ---------------------------
 
-// tslint:disable no-namespace
+// tslint:disable:no-namespace
 namespace TaskTimer {
 
     /**
@@ -609,6 +715,12 @@ namespace TaskTimer {
          *  @type {String}
          */
         TASK_COMPLETED = 'taskCompleted',
+        /**
+         *  Emitted when a task produces an error on its execution.
+         *  @memberof TaskTimer.Event
+         *  @type {String}
+         */
+        TASK_ERROR = 'taskError',
         /**
          *  Emitted when all tasks have completed all of their executions (runs)
          *  or reached their stopping date/time (if set). Note that this event
