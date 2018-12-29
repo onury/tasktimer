@@ -6,3 +6,4 @@ _SpecRunner.html
 src*.zip
 TODO.md
 .vscode
+perf-compare.spec.ts
