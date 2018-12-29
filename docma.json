@@ -4,7 +4,9 @@
         "encoding": "utf8",
         "recurse": false,
         "pedantic": false,
-        "access": ["public"],
+        "access": [
+            "public"
+        ],
         "package": null,
         "module": true,
         "undocumented": false,
@@ -34,7 +36,7 @@
         "meta": null,
         "base": "/tasktimer",
         "entrance": "content:guide",
-        "routing": "query",
+        "routing": "path",
         "server": "github"
     },
     "template": {
@@ -42,7 +44,7 @@
         "options": {
             "title": {
                 "label": "TaskTimer",
-                "href": "/tasktimer/?"
+                "href": "/tasktimer/"
             },
             "logo": null,                   // URL String or { dark: String, light: String }
             "sidebar": {
@@ -75,12 +77,12 @@
                     {
                         "iconClass": "ico-mouse-pointer",
                         "label": "Guide",
-                        "href": "./?content=guide"
+                        "href": "./"
                     },
                     {
                         "iconClass": "ico-book",
                         "label": "API Reference",
-                        "href": "./?api=tasktimer"
+                        "href": "./api"
                     },
                     {
                         "iconClass": "ico-md ico-github",
@@ -93,13 +95,12 @@
         }
     },
     "src": [
+        "./lib/tasktimer.js",
         {
-            "tasktimer": [
-                "./lib/tasktimer.js"
-            ],
             "guide": "./README.md"
         },
         "./CHANGELOG.md"
     ],
-    "dest": "../onury.github.io/tasktimer"
+    "dest": "../onury.github.io/tasktimer",
+    "clean": true
 }
