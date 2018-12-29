@@ -8,7 +8,7 @@
         "charset": "utf8",
         "checkJs": false,
         "declaration": true,
-        // "declarationDir": "./lib",
+        "declarationDir": "./lib",
         "diagnostics": false,
         "disableSizeLimit": false,
         "downlevelIteration": false,
