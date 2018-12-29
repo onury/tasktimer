@@ -7,6 +7,10 @@ declare class Task {
     /**
      *  @private
      */
+    private _timer;
+    /**
+     *  @private
+     */
     private _;
     /**
      *  Initializes a new instance of `Task` class.
@@ -15,10 +19,10 @@ declare class Task {
      */
     constructor(options: ITaskOptions);
     /**
-     *  Gets the unique name of the task.
+     *  Gets the unique ID of the task.
      *  @type {string}
      */
-    readonly name: string;
+    readonly id: string;
     /**
      *  Specifies whether this task is currently enabled. This essentially gives
      *  you a manual control over execution. The task will always bypass the
@@ -46,6 +50,13 @@ declare class Task {
      *  @type {number}
      */
     totalRuns: number;
+    /**
+     *  Specifies whether to wrap callback in a `setImmediate()` call before
+     *  executing. This can be useful if the task is not doing any I/O or using
+     *  any JS timers but synchronously blocking the event loop.
+     *  @type {boolean}
+     */
+    immediate: boolean;
     /**
      *  Gets the number of times, this task has been run.
      *  @type {number}
@@ -87,6 +98,24 @@ declare class Task {
      */
     toJSON(): any;
     /**
+     *  Only used by `TaskTimer`.
+     *  @private
+     */
+    private _setTimer;
+    /**
+     *  @private
+     */
+    private _emit;
+    /**
+     *  @private
+     */
+    private _done;
+    /**
+     *  @private
+     */
+    private _execCallback;
+    /**
+     *  Only used by `TaskTimer`.
      *  @private
      */
     private _run;

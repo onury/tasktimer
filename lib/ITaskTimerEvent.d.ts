@@ -19,5 +19,11 @@ interface ITaskTimerEvent {
      *  @type {any}
      */
     data?: any;
+    /**
+     *  Any `Error` instance passed to the event emitter. This is generally a
+     *  task error instance if set.
+     *  @type {any}
+     */
+    error?: Error;
 }
 export { ITaskTimerEvent };

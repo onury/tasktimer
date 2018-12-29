@@ -1,5 +1,5 @@
 import { EventEmitter } from 'eventemitter3';
-import { ITaskTimerOptions, ITaskOptions, Task as TTask, TaskCallback, ITimeInfo } from '.';
+import { ITaskOptions, ITaskTimerOptions, ITimeInfo, Task as TTask, TaskCallback } from '.';
 /**
  *  TaskTimer • https://github.com/onury/tasktimer
  *  @license MIT
@@ -18,13 +18,20 @@ import { ITaskTimerOptions, ITaskOptions, Task as TTask, TaskCallback, ITimeInfo
  */
 declare class TaskTimer extends EventEmitter {
     /**
+     *  Inner storage for Tasktimer.
      *  @private
      */
     private _;
     /**
+     *  setTimeout reference used by the timmer.
      *  @private
      */
-    private _timer;
+    private _timeoutRef;
+    /**
+     *  setImmediate reference used by the timer.
+     *  @private
+     */
+    private _immediateRef;
     /**
      *  Constructs a new `TaskTimer` instance with the given time interval (in
      *  milliseconds).
@@ -36,7 +43,6 @@ declare class TaskTimer extends EventEmitter {
      *  resolution for all tasks. If you are running heavy tasks, lower interval
      *  requires higher CPU power. This value can be updated any time by setting
      *  the `interval` property on the instance.
-     *  @returns {TaskTimer}
      *
      *  @example
      *  const timer = new TaskTimer(1000); // milliseconds
@@ -47,11 +53,11 @@ declare class TaskTimer extends EventEmitter {
      *  });
      *  // Or add a task named 'heartbeat' that runs every 5 ticks and a total of 10 times.
      *  const task = {
-     *      name: 'heartbeat',
+     *      id: 'heartbeat',
      *      tickInterval: 5, // ticks
      *      totalRuns: 10,   // times
      *      callback: function (task) {
-     *          console.log(task.name + ' task has run ' + task.currentRuns + ' times.');
+     *          console.log(task.id + ' task has run ' + task.currentRuns + ' times.');
      *      }
      *  };
      *  timer.addTask(task).start();
@@ -64,9 +70,18 @@ declare class TaskTimer extends EventEmitter {
      *  value operates as the base resolution for all tasks. If you are running
      *  heavy tasks; lower interval requires higher CPU power.
      *  @memberof TaskTimer
-     *  @type {Number}
+     *  @type {number}
      */
     interval: number;
+    /**
+     *  Gets or sets whether the timer should auto-adjust the delay between
+     *  ticks if it's off due to task load. Note that precision will be as high
+     *  as possible but it still can be off by a few milliseconds; depending on
+     *  the CPU or the load.
+     *  @memberof TaskTimer
+     *  @type {boolean}
+     */
+    precision: boolean;
     /**
      *  Gets or sets whether the timer should automatically stop when all tasks
      *  are completed. For this to take affect, all added tasks should have
@@ -118,14 +133,14 @@ declare class TaskTimer extends EventEmitter {
      */
     readonly runCount: number;
     /**
-     *  Gets the task with the given name.
+     *  Gets the task with the given ID.
      *  @memberof TaskTimer
      *
-     *  @param {String} name - Name of the task.
+     *  @param {String} id - ID of the task.
      *
      *  @returns {Task}
      */
-    get(name: string): TTask;
+    get(id: string): TTask;
     /**
      *  Adds a collection of new tasks for the timer.
      *  @memberof TaskTimer
@@ -230,20 +245,37 @@ declare class TaskTimer extends EventEmitter {
      */
     private _reset;
     /**
+     *  Called (by Task instance) when it has completed all of its runs.
+     *  @private
+     */
+    private _taskCompleted;
+    /**
      *  Handler to be executed on each tick.
      *  @private
      */
     private _tick;
+    /**
+     *  Marks the resume (or start) time in milliseconds or high-resolution time
+     *  if available.
+     *  @private
+     */
+    private _markTime;
+    /**
+     *  Gets the time difference in milliseconds sinct the last resume or start
+     *  time.
+     *  @private
+     */
+    private _getTimeDiff;
     /**
      *  Runs the timer.
      *  @private
      */
     private _run;
     /**
-     *  Gets a unique task name.
+     *  Gets a unique task ID.
      *  @private
      */
-    private _getNewTaskName;
+    private _getUniqueTaskID;
 }
 declare namespace TaskTimer {
     /**
@@ -359,6 +391,12 @@ declare namespace TaskTimer {
          *  @type {String}
          */
         TASK_COMPLETED = "taskCompleted",
+        /**
+         *  Emitted when a task produces an error on its execution.
+         *  @memberof TaskTimer.Event
+         *  @type {String}
+         */
+        TASK_ERROR = "taskError",
         /**
          *  Emitted when all tasks have completed all of their executions (runs)
          *  or reached their stopping date/time (if set). Note that this event
