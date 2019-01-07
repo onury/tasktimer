@@ -6,7 +6,7 @@
     <a href="https://coveralls.io/github/onury/tasktimer?branch=master"><img src="https://img.shields.io/coveralls/github/onury/tasktimer/master.svg?style=flat-square" alt="Coverage Status" /></a>
     <a href="https://david-dm.org/onury/tasktimer"><img src="https://david-dm.org/onury/tasktimer.svg?style=flat-square" alt="Dependencies" /></a>
     <a href="https://snyk.io/test/github/onury/tasktimer"><img src="https://snyk.io/test/github/onury/tasktimer/badge.svg?style=flat-square" alt="Known Vulnerabilities" /></a>
-    <a href="https://github.com/onury/tasktimer/graphs/commit-activity"><img src="https://img.shields.io/maintenance/yes/2018.svg?style=flat-square" alt="Maintained" /></a>
+    <a href="https://github.com/onury/tasktimer/graphs/commit-activity"><img src="https://img.shields.io/maintenance/yes/2019.svg?style=flat-square" alt="Maintained" /></a>
     <br />
     <a href="https://www.npmjs.com/package/tasktimer"><img src="http://img.shields.io/npm/v/tasktimer.svg?style=flat-square" alt="npm" /></a>
     <a href="https://github.com/onury/tasktimer"><img src="https://img.shields.io/github/release/onury/tasktimer.svg?style=flat-square" alt="Release" /></a>
