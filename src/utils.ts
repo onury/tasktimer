@@ -6,8 +6,16 @@ const NODE = !BROWSER;
 const utils = {
     BROWSER,
     NODE,
-    type(object: any): string {
-        return proto.toString.call(object).match(/\s(\w+)/i)[1].toLowerCase();
+    type(o: any): string {
+        return proto.toString.call(o).match(/\s(\w+)/i)[1].toLowerCase();
+    },
+    isset(o: any): boolean {
+        return o !== null && o !== undefined;
+    },
+    ensureArray(o: any): any[] {
+        return utils.isset(o)
+            ? !Array.isArray(o) ? [o] : o
+            : [];
     },
     getNumber(value: number, minimum: number, defaultValue: number): number {
         return typeof value === 'number'
@@ -20,21 +28,18 @@ const utils = {
             : value;
     },
     setImmediate(cb: (...args: any[]) => void, ...args: any[]): any {
-        if (BROWSER) {
+        /* istanbul ignore if */
+        if (BROWSER) { // tested separately
             return setTimeout(cb.apply(null, args), 0);
         }
         return setImmediate(cb, ...args);
     },
     clearImmediate(id: any): void {
+        /* istanbul ignore next */
         if (!id) return;
-        if (BROWSER) return clearTimeout(id);
+        /* istanbul ignore if */
+        if (BROWSER) return clearTimeout(id); // tested separately
         clearImmediate(id);
-    },
-    immediate(cb: (...args: any[]) => void, ...args: any[]): any {
-        const id = utils.setImmediate(() => {
-            cb.apply(null, args);
-            utils.clearImmediate(id);
-        });
     },
     /**
      *  Checks whether the given value is a promise.
