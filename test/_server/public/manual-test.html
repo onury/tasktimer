@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>TaskTimer</title>
+    <script type="text/javascript" src="../../../lib/tasktimer.min.js"></script>
+    <script>
+        const { TaskTimer, Task } = window.tasktimer;
+        const timer = new TaskTimer(1000);
+        timer.add({
+            totalRuns: 3,
+            callback(task) {
+                console.log(`${task.id} run # ${task.currentRuns}`);
+            }
+        });
+        const task = new Task({
+            id: 'delayed-task',
+            totalRuns: 1,
+            tickDelay: 5,
+            callback(task) {
+                console.log(`${task.id} is fired @ tick # ${timer.tickCount}`);
+                timer.stop();
+                timer = null;
+            }
+        });
+        timer.add(task);
+        timer.on('stopped', event => {
+            console.log('timer has stopped! event:', event);
+        });
+        timer.start();
+    </script>
+</head>
+
+<body>
+    <div style="text-align: center; width: 100%;">
+        <br /><br />
+        <i>Jest-Puppeteer Test Page for:</i><br />
+        <h1>TaskTimer</h1>
+    </div>
+</body>
+
+</html>

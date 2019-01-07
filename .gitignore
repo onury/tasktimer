@@ -7,5 +7,5 @@ _SpecRunner.html
 src*.zip
 TODO.md
 .vscode
-/coverage/
+/test/coverage/
 perf-compare.spec.ts
