@@ -27,10 +27,28 @@ interface ITaskBaseOptions {
     tickInterval?: number;
     /**
      *  Total number of times the task should be run. `0` or `null` means
-     *  unlimited (until the timer has stopped). Default: `null`
+     *  unlimited until `stopDate` is reached or the timer has stopped. If
+     *  `stopDate` is reached before `totalRuns` is fulfilled, task will still
+     *  be considered completed and will not be executed any more. Default:
+     *  `null`
      *  @type {number}
      */
     totalRuns?: number;
+    /**
+     *  Indicates the initial date and time to start executing the task on given
+     *  interval. If omitted, task will be executed on defined tick interval,
+     *  right after the timer starts.
+     *  @type {number|Date}
+     */
+    startDate?: number | Date;
+    /**
+     *  Indicates the final date and time to execute the task. If `totalRuns` is
+     *  set and it's reached before this date; task will be considered completed
+     *  and will not be executed any more. If `stopDate` is omitted, task will
+     *  be executed until `totalRuns` is fulfilled or timer is stopped.
+     *  @type {number|Date}
+     */
+    stopDate?: number | Date;
     /**
      *  Whether to wrap callback in a `setImmediate()` call before executing.
      *  This can be useful if the task is not doing any I/O or using any JS
@@ -46,9 +64,26 @@ interface ITaskBaseOptions {
      */
     removeOnCompleted?: boolean;
     /**
-     *  The callback function (task) to be executed on each run. The task itself
-     *  is passed to this callback, as the first argument.
+     *  The callback function of the task to be executed on each run. The task
+     *  itself is passed to this callback, as the first argument. If you're
+     *  defining an async task; either return a `Promise` or call `done()`
+     *  function which is passed as the second argument to the callback.
      *  @type {TaskCallback}
+     *
+     *  @example <caption>Using <code>done()</code> function</caption>
+     *  timer.add({
+     *      callback(task, done) {
+     *          fs.readFile(filePath, () => done());
+     *      }
+     *  });
+     *  @example <caption>Returning a <code>Promise()</code></caption>
+     *  timer.add({
+     *      callback(task) {
+     *          return readFileAsync().then(result => {
+     *             // do some stuff...
+     *          });
+     *      }
+     *  });
      */
     callback: TaskCallback;
 }
