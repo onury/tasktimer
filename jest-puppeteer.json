@@ -12,6 +12,13 @@
     ],
     "testPathIgnorePatterns": [
         "/backup/",
-        "/.coverage/"
-    ]
+        "/coverage/",
+        "/node_modules/",
+        "/src/"
+    ],
+    "collectCoverageFrom": [
+        "lib/tasktimer.js",
+        "!src/**/*"
+    ],
+    "coverageDirectory": "./test/coverage"
 }
