@@ -31,7 +31,7 @@ Secondly, I needed a task manager that can handle multiple tasks on different in
   - In Node.js, `TaskTimer` also makes use of `process.hrtime()` **high-resolution real-time**. The time is relative to an arbitrary time in the past (not related to the time of day) and therefore not subject to clock drifts.
   - The timer may hit a synchronous / blocking task; or detect significant time drift (longer than the base interval) due to JS event queue, which cannot be recovered by simply adjusting the next delay. In this case, right from the next tick onward; it will auto-recover as much as possible by running "immediate" tasks until it reaches the proper time vs tick/run balance.
 - Run or schedule **multiple tasks** (on a single timer instance).
-- Ability to run sync or async tasks that return a promise (or use callbacks).
+- Ability to run **sync** or **async** tasks that return a promise (or use callbacks).
 - Ability to **balance task-loads** via distributing executions by tick intervals.
 - Ability to **limit total runs** of a task.
 - **Stateful tasks**: i.e. ability to auto-stop when all tasks complete.
