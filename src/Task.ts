@@ -1,6 +1,6 @@
 /* tslint:disable:no-empty */
 
-import { ITaskBaseOptions, ITaskOptions, ITaskTimerEvent, TaskCallback, TaskTimer } from '.';
+import { ITaskBaseOptions, ITaskOptions, ITaskTimerEvent, ITimeInfo, TaskCallback, TaskTimer } from '.';
 import { utils } from './utils';
 
 /**
@@ -11,9 +11,11 @@ const DEFAULT_TASK_OPTIONS: ITaskOptions = Object.freeze({
     tickDelay: 0,
     tickInterval: 1,
     totalRuns: null,
+    startDate: null,
+    stopDate: null,
     immediate: false,
     removeOnCompleted: false,
-    callback(): void {}
+    callback: null
 });
 
 /**
@@ -30,8 +32,15 @@ class Task {
     /**
      *  @private
      */
+    private _markedCompleted: boolean;
+
+    /**
+     *  @private
+     */
     private _: {
         currentRuns: number;
+        timeOnFirstRun?: number;
+        timeOnLastRun?: number;
     } & ITaskOptions;
 
     /**
@@ -50,6 +59,7 @@ class Task {
     /**
      *  Gets the unique ID of the task.
      *  @type {string}
+     *  @readonly
      */
     get id(): string {
         return this._.id;
@@ -122,14 +132,34 @@ class Task {
     /**
      *  Gets the number of times, this task has been run.
      *  @type {number}
+     *  @readonly
      */
     get currentRuns(): number {
         return this._.currentRuns;
     }
 
     /**
+     *  Gets time information for the lifetime of a task.
+     *  `#time.started` indicates the first execution time of a task.
+     *  `#time.stopped` indicates the last execution time of a task. (`0` if still running.)
+     *  `#time.elapsed` indicates the total lifetime of a task.
+     *  @type {ITimeInfo}
+     *  @readonly
+     */
+    get time(): ITimeInfo {
+        const started = this._.timeOnFirstRun || 0;
+        const stopped = this._.timeOnLastRun || 0;
+        return Object.freeze({
+            started,
+            stopped,
+            elapsed: stopped - started
+        });
+    }
+
+    /**
      *  Gets the callback function to be executed on each run.
      *  @type {TaskCallback}
+     *  @readonly
      */
     get callback(): TaskCallback {
         return this._.callback;
@@ -149,15 +179,33 @@ class Task {
     }
 
     /**
-     *  Specifies whether the task has completed all runs (executions). Note
-     *  that if `totalRuns` and/or `stopDate` is not set, this will never return
-     *  `true`; since the task has no execution limit set.
+     *  Specifies whether the task has completed all runs (executions) or
+     *  `stopDate` is reached. Note that if both `totalRuns` and `stopDate` are
+     *  omitted, this will never return `true`; since the task has no execution
+     *  limit set.
      *  @type {boolean}
+     *  @readonly
      */
     get completed(): boolean {
-        // TODO: check stopDate here
-        const canRun: boolean = !this.totalRuns || this.currentRuns < this.totalRuns;
-        return !canRun;
+        // return faster if already completed
+        if (this._markedCompleted) return true;
+        return Boolean((this.totalRuns && this.currentRuns >= this.totalRuns)
+            || (this._.stopDate && Date.now() >= this._.stopDate));
+    }
+
+    /**
+     *  Specifies whether the task can run on the current tick of the timer.
+     *  @type {boolean}
+     *  @readonly
+     */
+    get canRunOnTick(): boolean {
+        if (this._markedCompleted) return false;
+        const tickCount = this._.startDate
+            ? Math.ceil((Date.now() - Number(this._.startDate)) / this._timer.interval)
+            : this._timer.tickCount;
+        const timeToRun = !this._.startDate || Date.now() >= this._.startDate;
+        const onInterval = tickCount > this.tickDelay && (tickCount - this.tickDelay) % this.tickInterval === 0;
+        return Boolean(timeToRun && onInterval);
     }
 
     /**
@@ -172,15 +220,18 @@ class Task {
     reset(options?: ITaskBaseOptions): Task {
         this._.currentRuns = 0;
         if (options) {
-            if ((options as any).id) throw new Error('Cannot change ID of a task.');
+            const id = (options as ITaskOptions).id;
+            if (id && id !== this.id) throw new Error('Cannot change ID of a task.');
+            (options as ITaskOptions).id = this.id;
             this._init(options);
         }
         return this;
     }
 
     /**
-     *  Never return JSON From toJSON.
-     *  It should return an object.
+     *  Serialization to JSON.
+     *
+     *  Never return string From `toJSON()`. It should return an object.
      *  @private
      */
     toJSON(): any {
@@ -196,7 +247,8 @@ class Task {
     // ---------------------------
 
     /**
-     *  Only used by `TaskTimer`.
+     *  Set reference to timer itself.
+     *  Only called by `TaskTimer`.
      *  @private
      */
     // @ts-ignore: TS6133: declared but never read.
@@ -212,30 +264,36 @@ class Task {
             type,
             source: this
         };
-        if (object instanceof Task) {
-            event.data = object;
-        } else {
+        /* istanbul ignore else */
+        if (object instanceof Error) {
             event.error = object;
+        } else {
+            event.data = object;
         }
         this._timer.emit(type, event);
     }
 
     /**
+     *  `TaskTimer` should be informed if this task is completed. But execution
+     *  should be finished. So we do this within the `done()` function.
      *  @private
      */
     private _done(): void {
-        this._.currentRuns += 1;
-        if (this.completed) (this._timer as any)._taskCompleted(this);
+        if (this.completed) {
+            this._markedCompleted = true;
+            this._.timeOnLastRun = Date.now();
+            (this._timer as any)._taskCompleted(this);
+        }
     }
 
     /**
      *  @private
      */
-    private _execCallback(timer: TaskTimer): void {
+    private _execCallback(): void {
         try {
-            const o = this.callback.apply(null, [this, this._done]);
+            const o = this.callback.apply(this, [this, () => this._done()]);
             if (this.callback.length >= 2) {
-                // handled by _done() (called within the task callback)
+                // handled by done() (called within the task callback by the user)
             } else if (utils.isPromise(o)) {
                 o.then(() => {
                     this._done();
@@ -256,16 +314,19 @@ class Task {
      *  @private
      */
     // @ts-ignore: TS6133: declared but never read.
-    private _run(onRun: Function | any, timer: TaskTimer): void {
-        if (!this.enabled || this.completed) return;
+    private _run(onRun: Function | any): void {
+        if (!this.enabled || this._markedCompleted) return;
+        if (this.currentRuns === 0) this._.timeOnFirstRun = Date.now();
+        // current runs should be set before execution or it might flow if some
+        // async runs finishes faster and some other slower.
+        this._.currentRuns++;
+        onRun();
 
         if (this.immediate) {
-            utils.setImmediate(() => this._execCallback(timer));
+            utils.setImmediate(() => this._execCallback());
         } else {
-            this._execCallback(timer);
+            this._execCallback();
         }
-
-        onRun();
     }
 
     /**
@@ -273,18 +334,37 @@ class Task {
      */
     private _init(options: ITaskOptions): void {
         if (!options || !options.id) {
-            throw new Error('A unique task ID is required. Use TaskTimer#add() to create a task with auto-generated unique ID.');
+            throw new Error('A unique task ID is required.');
         }
 
         if (typeof options.callback !== 'function') {
-            throw new Error('A callback function is required for a task to be run.');
+            throw new Error('A callback function is required for a task to run.');
         }
+
+        const { startDate, stopDate } = options;
+        if (startDate && stopDate && startDate >= stopDate) {
+            throw new Error('Task start date cannot be the same or after stop date.');
+        }
+
+        this._markedCompleted = false;
 
         this._ = {
             currentRuns: 0,
-            ...DEFAULT_TASK_OPTIONS,
-            ...(options || {})
+            ...DEFAULT_TASK_OPTIONS
         };
+
+        this._.id = String(options.id);
+        this._.callback = options.callback;
+        this._.startDate = options.startDate || null;
+        this._.stopDate = options.stopDate || null;
+
+        // using setters for validation & default values
+        this.enabled = options.enabled;
+        this.tickDelay = options.tickDelay;
+        this.tickInterval = options.tickInterval;
+        this.totalRuns = options.totalRuns;
+        this.immediate = options.immediate;
+        this.removeOnCompleted = options.removeOnCompleted;
     }
 }
 
