@@ -46,10 +46,10 @@ class TaskTimer extends EventEmitter {
         state: TaskTimer.State;
         tasks: { [k: string]: TTask };
         tickCount: number;
-        runCount: number;
+        taskRunCount: number;
         startTime: number;
         stopTime: number;
-        completedCount: number;
+        completedTaskCount: number;
         // below are needed for precise interval. we need to inspect ticks and
         // elapsed time difference within the latest "continuous" session. in
         // other words, paused time should be ignored in these calculations. so
@@ -70,6 +70,12 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _immediateRef: any;
+
+    /**
+     *  Timer run count storage.
+     *  @private
+     */
+    private _runCount: number;
 
     // ---------------------------
     // CONSTRUCTOR
@@ -110,6 +116,7 @@ class TaskTimer extends EventEmitter {
 
         this._timeoutRef = null;
         this._immediateRef = null;
+        this._runCount = 0;
         this._reset();
 
         this._.opts = {};
@@ -228,8 +235,18 @@ class TaskTimer extends EventEmitter {
      *  @type {Number}
      *  @readonly
      */
+    get taskRunCount(): number {
+        return this._.taskRunCount;
+    }
+
+    /**
+     *  Gets the total number of timer runs, including resumed runs.
+     *  @memberof TaskTimer
+     *  @type {Number}
+     *  @readonly
+     */
     get runCount(): number {
-        return this._.runCount;
+        return this._runCount;
     }
 
     // ---------------------------
@@ -263,8 +280,10 @@ class TaskTimer extends EventEmitter {
      *  name already exists.
      */
     add(task: TTask | ITaskOptions | TaskCallback | Array<TTask | ITaskOptions | TaskCallback>): TaskTimer {
-        const list = _ensureArray(task);
-        (list || []).forEach((item: any) => this._add(item));
+        if (!utils.isset(task)) {
+            throw new Error('Either a task, task options or a callback is required.');
+        }
+        utils.ensureArray(task).forEach((item: any) => this._add(item));
         return this;
     }
 
@@ -289,7 +308,7 @@ class TaskTimer extends EventEmitter {
         }
 
         // first decrement completed tasks count if this is a completed task.
-        if (task.completed && this._.completedCount > 0) this._.completedCount--;
+        if (task.completed && this._.completedTaskCount > 0) this._.completedTaskCount--;
 
         this._.tasks[id] = null;
         delete this._.tasks[id];
@@ -309,8 +328,9 @@ class TaskTimer extends EventEmitter {
     start(): TaskTimer {
         this._stop();
         this._.state = TaskTimer.State.RUNNING;
+        this._runCount++;
         this._.tickCount = 0;
-        this._.runCount = 0;
+        this._.taskRunCount = 0;
         this._.stopTime = 0;
         this._markTime();
         this._.startTime = Date.now();
@@ -348,6 +368,7 @@ class TaskTimer extends EventEmitter {
             return this;
         }
         if (this.state !== TaskTimer.State.PAUSED) return this;
+        this._runCount++;
         this._markTime();
         this._.state = TaskTimer.State.RUNNING;
         this._emit(TaskTimer.EventType.RESUMED);
@@ -424,12 +445,12 @@ class TaskTimer extends EventEmitter {
             };
         }
 
-        if (_type(options) === 'object' && !options.id) {
+        if (utils.type(options) === 'object' && !options.id) {
             (options as ITaskOptions).id = this._getUniqueTaskID();
         }
 
         if (this.get(options.id)) {
-            throw new Error(`A task with name '${options.id}' already exists.`);
+            throw new Error(`A task with id '${options.id}' already exists.`);
         }
 
         const task = options instanceof TTask ? options : new TTask(options);
@@ -465,10 +486,10 @@ class TaskTimer extends EventEmitter {
             state: TaskTimer.State.IDLE,
             tasks: {},
             tickCount: 0,
-            runCount: 0,
+            taskRunCount: 0,
             startTime: 0,
             stopTime: 0,
-            completedCount: 0,
+            completedTaskCount: 0,
             resumeTime: 0,
             hrResumeTime: null,
             tickCountAfterResume: 0
@@ -482,13 +503,13 @@ class TaskTimer extends EventEmitter {
      */
     // @ts-ignore: TS6133: declared but never read.
     private _taskCompleted(task: TTask): void {
-        this._.completedCount++;
+        this._.completedTaskCount++;
         this._emit(TaskTimer.EventType.TASK_COMPLETED, task);
-        if (task.removeOnCompleted) this.remove(task);
-        if (this._.completedCount === this.taskCount) {
+        if (this._.completedTaskCount === this.taskCount) {
             this._emit(TaskTimer.EventType.COMPLETED);
             if (this.stopOnCompleted) this.stop();
         }
+        if (task.removeOnCompleted) this.remove(task);
     }
 
     /**
@@ -502,27 +523,23 @@ class TaskTimer extends EventEmitter {
         let task: TTask;
         const tasks = this._.tasks;
 
-        this._.tickCount += 1;
-        this._.tickCountAfterResume += 1;
+        this._.tickCount++;
+        this._.tickCountAfterResume++;
+        this._emit(TaskTimer.EventType.TICK);
 
         // tslint:disable:forin
         for (id in tasks) {
             task = tasks[id];
-            if (!task
-                    || this.tickCount < task.tickDelay // wait for tickDelay if set
-                    || (this.tickCount - task.tickDelay) % task.tickInterval !== 0) {
-                continue;
-            }
+            if (!task || !task.canRunOnTick) continue;
 
             // below will not execute if task is disabled or already
             // completed.
             (task as any)._run(() => {
-                this._.runCount += 1;
+                this._.taskRunCount++;
                 this._emit(TaskTimer.EventType.TASK, task);
-            }, this);
+            });
         }
 
-        this._emit(TaskTimer.EventType.TICK);
         this._run();
     }
 
@@ -532,7 +549,8 @@ class TaskTimer extends EventEmitter {
      *  @private
      */
     private _markTime(): void {
-        if (utils.BROWSER) {
+        /* istanbul ignore if */
+        if (utils.BROWSER) { // tested separately
             this._.resumeTime = Date.now();
         } else {
             this._.hrResumeTime = process.hrtime();
@@ -546,7 +564,8 @@ class TaskTimer extends EventEmitter {
      */
     private _getTimeDiff(): number {
         // Date.now() is ~2x faster than Date#getTime()
-        if (utils.BROWSER) return Date.now() - this._.resumeTime;
+        /* istanbul ignore if */
+        if (utils.BROWSER) return Date.now() - this._.resumeTime; // tested separately
 
         const hrDiff = process.hrtime(this._.hrResumeTime);
         return Math.ceil((hrDiff[0] * 1000) + (hrDiff[1] / 1e6));
@@ -598,6 +617,7 @@ class TaskTimer extends EventEmitter {
 // ---------------------------
 
 // tslint:disable:no-namespace
+/* istanbul ignore next */
 namespace TaskTimer {
 
     /**
@@ -740,53 +760,33 @@ namespace TaskTimer {
 export { TaskTimer };
 
 // ---------------------------
-// HELPER METHODS
-// ---------------------------
-
-/**
- *  @private
- */
-function _ensureArray(o: any): any[] {
-    return o
-        ? !Array.isArray(o) ? [o] : o
-        : [];
-}
-
-/**
- *  @private
- */
-function _type(o: any): string {
-    return Object.prototype.toString.call(o).match(/\s(\w+)/i)[1].toLowerCase();
-}
-
-// ---------------------------
 // ADDITIONAL DOCUMENTATION
 // ---------------------------
 
 /**
  *  Adds the listener function to the end of the listeners array for the event
- *  named `eventName`. No checks are made to see if the listener has already
- *  been added. Multiple calls passing the same combination of eventName and
+ *  named `eventType`. No checks are made to see if the listener has already
+ *  been added. Multiple calls passing the same combination of eventType and
  *  listener will result in the listener being added, and called, multiple times.
  *  @name TaskTimer#on
  *  @function
  *  @alias TaskTimer#addListener
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be added.
+ *  @param {String} eventType - The type of the event to be added.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
  */
 
 /**
- *  Adds a one time listener function for the event named `eventName`. The next
- *  time eventName is triggered, this listener is removed and then invoked.
+ *  Adds a one time listener function for the event named `eventType`. The next
+ *  time eventType is triggered, this listener is removed and then invoked.
  *  @name TaskTimer#once
  *  @function
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be added.
+ *  @param {String} eventType - The type of the event to be added.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
@@ -794,25 +794,25 @@ function _type(o: any): string {
 
  /**
   *  Removes the specified `listener` from the listener array for the event
-  *  named `eventName`.
+  *  named `eventType`.
   *  @name TaskTimer#off
   *  @function
   *  @alias TaskTimer#removeListener
   *  @chainable
   *
-  *  @param {String} eventName - The name of the event to be removed.
+  *  @param {String} eventType - The type of the event to be removed.
   *  @param {Function} listener - The callback function to be invoked per event.
   *
   *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
   */
 
  /**
-  *  Removes all listeners, or those of the specified eventName.
+  *  Removes all listeners, or those of the specified eventType.
   *  @name TaskTimer#removeAllListeners
   *  @function
   *  @chainable
   *
-  *  @param {String} eventName - The name of the event to be removed.
+  *  @param {String} eventType - The type of the event to be removed.
   *  @param {Function} listener - The callback function to be invoked per event.
   *
   *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
