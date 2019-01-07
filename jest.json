@@ -18,7 +18,7 @@
     ],
     "testPathIgnorePatterns": [
         "/backup/",
-        "/.coverage/"
+        "/coverage/"
     ],
     "collectCoverageFrom": [
         "src/**/*.ts",
@@ -29,5 +29,5 @@
         "!src/ITimeInfo.ts",
         "!src/TaskCallback.ts"
     ],
-    "coverageDirectory": "./test/.coverage"
+    "coverageDirectory": "./test/coverage"
 }
