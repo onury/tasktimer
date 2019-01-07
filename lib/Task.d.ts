@@ -1,4 +1,4 @@
-import { ITaskBaseOptions, ITaskOptions, TaskCallback } from '.';
+import { ITaskBaseOptions, ITaskOptions, ITimeInfo, TaskCallback } from '.';
 /**
  *  Represents the class that holds the configurations and the callback function
  *  required to run a task.
@@ -8,6 +8,10 @@ declare class Task {
      *  @private
      */
     private _timer;
+    /**
+     *  @private
+     */
+    private _markedCompleted;
     /**
      *  @private
      */
@@ -21,6 +25,7 @@ declare class Task {
     /**
      *  Gets the unique ID of the task.
      *  @type {string}
+     *  @readonly
      */
     readonly id: string;
     /**
@@ -60,11 +65,22 @@ declare class Task {
     /**
      *  Gets the number of times, this task has been run.
      *  @type {number}
+     *  @readonly
      */
     readonly currentRuns: number;
     /**
+     *  Gets time information for the lifetime of a task.
+     *  `#time.started` indicates the first execution time of a task.
+     *  `#time.stopped` indicates the last execution time of a task. (`0` if still running.)
+     *  `#time.elapsed` indicates the total lifetime of a task.
+     *  @type {ITimeInfo}
+     *  @readonly
+     */
+    readonly time: ITimeInfo;
+    /**
      *  Gets the callback function to be executed on each run.
      *  @type {TaskCallback}
+     *  @readonly
      */
     readonly callback: TaskCallback;
     /**
@@ -75,12 +91,20 @@ declare class Task {
      */
     removeOnCompleted: boolean;
     /**
-     *  Specifies whether the task has completed all runs (executions). Note
-     *  that if `totalRuns` and/or `stopDate` is not set, this will never return
-     *  `true`; since the task has no execution limit set.
+     *  Specifies whether the task has completed all runs (executions) or
+     *  `stopDate` is reached. Note that if both `totalRuns` and `stopDate` are
+     *  omitted, this will never return `true`; since the task has no execution
+     *  limit set.
      *  @type {boolean}
+     *  @readonly
      */
     readonly completed: boolean;
+    /**
+     *  Specifies whether the task can run on the current tick of the timer.
+     *  @type {boolean}
+     *  @readonly
+     */
+    readonly canRunOnTick: boolean;
     /**
      *  Resets the current number of runs. This will keep the task running for
      *  the same amount of `tickIntervals` initially configured.
@@ -92,13 +116,15 @@ declare class Task {
      */
     reset(options?: ITaskBaseOptions): Task;
     /**
-     *  Never return JSON From toJSON.
-     *  It should return an object.
+     *  Serialization to JSON.
+     *
+     *  Never return string From `toJSON()`. It should return an object.
      *  @private
      */
     toJSON(): any;
     /**
-     *  Only used by `TaskTimer`.
+     *  Set reference to timer itself.
+     *  Only called by `TaskTimer`.
      *  @private
      */
     private _setTimer;
@@ -107,6 +133,8 @@ declare class Task {
      */
     private _emit;
     /**
+     *  `TaskTimer` should be informed if this task is completed. But execution
+     *  should be finished. So we do this within the `done()` function.
      *  @private
      */
     private _done;

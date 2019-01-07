@@ -33,6 +33,11 @@ declare class TaskTimer extends EventEmitter {
      */
     private _immediateRef;
     /**
+     *  Timer run count storage.
+     *  @private
+     */
+    private _runCount;
+    /**
      *  Constructs a new `TaskTimer` instance with the given time interval (in
      *  milliseconds).
      *  @constructor
@@ -127,6 +132,13 @@ declare class TaskTimer extends EventEmitter {
     readonly taskCount: number;
     /**
      *  Gets the total number of all task executions (runs).
+     *  @memberof TaskTimer
+     *  @type {Number}
+     *  @readonly
+     */
+    readonly taskRunCount: number;
+    /**
+     *  Gets the total number of timer runs, including resumed runs.
      *  @memberof TaskTimer
      *  @type {Number}
      *  @readonly
@@ -411,51 +423,51 @@ declare namespace TaskTimer {
 export { TaskTimer };
 /**
  *  Adds the listener function to the end of the listeners array for the event
- *  named `eventName`. No checks are made to see if the listener has already
- *  been added. Multiple calls passing the same combination of eventName and
+ *  named `eventType`. No checks are made to see if the listener has already
+ *  been added. Multiple calls passing the same combination of eventType and
  *  listener will result in the listener being added, and called, multiple times.
  *  @name TaskTimer#on
  *  @function
  *  @alias TaskTimer#addListener
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be added.
+ *  @param {String} eventType - The type of the event to be added.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
  */
 /**
- *  Adds a one time listener function for the event named `eventName`. The next
- *  time eventName is triggered, this listener is removed and then invoked.
+ *  Adds a one time listener function for the event named `eventType`. The next
+ *  time eventType is triggered, this listener is removed and then invoked.
  *  @name TaskTimer#once
  *  @function
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be added.
+ *  @param {String} eventType - The type of the event to be added.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
  */
 /**
  *  Removes the specified `listener` from the listener array for the event
- *  named `eventName`.
+ *  named `eventType`.
  *  @name TaskTimer#off
  *  @function
  *  @alias TaskTimer#removeListener
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be removed.
+ *  @param {String} eventType - The type of the event to be removed.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
  */
 /**
- *  Removes all listeners, or those of the specified eventName.
+ *  Removes all listeners, or those of the specified eventType.
  *  @name TaskTimer#removeAllListeners
  *  @function
  *  @chainable
  *
- *  @param {String} eventName - The name of the event to be removed.
+ *  @param {String} eventType - The type of the event to be removed.
  *  @param {Function} listener - The callback function to be invoked per event.
  *
  *  @returns {Object} - `{@link #TaskTimer|TaskTimer}` instance.
