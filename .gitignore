@@ -1,4 +1,5 @@
 /backup/
+/design/
 /wiki/
 /node_modules/
 /.grunt/
@@ -6,4 +7,5 @@ _SpecRunner.html
 src*.zip
 TODO.md
 .vscode
+/coverage/
 perf-compare.spec.ts
