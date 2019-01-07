@@ -18,6 +18,7 @@
         "test": "jest --coverage --verbose --no-cache --runInBand -c ./jest.json",
         "test:browser": "npm run clean && npm run build:dev && jest --verbose --no-cache --runInBand -c ./jest-puppeteer.json",
         "test:serve": "node ./test/_server",
+        "coveralls": "cat ./test/coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js -v",
         "docs": "docma"
     },
     "repository": {
@@ -47,6 +48,7 @@
         "@types/jest": "^23.3.11",
         "@types/jest-environment-puppeteer": "^2.2.1",
         "@types/puppeteer": "^1.11.1",
+        "coveralls": "^3.0.2",
         "docma": "^3.1.0",
         "express": "^4.16.4",
         "fork-ts-checker-webpack-plugin": "^0.5.2",
