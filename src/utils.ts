@@ -3,6 +3,7 @@ const proto = Object.prototype;
 const BROWSER = typeof window !== 'undefined';
 const NODE = !BROWSER;
 
+/** @private */
 const utils = {
     BROWSER,
     NODE,
@@ -43,6 +44,7 @@ const utils = {
     },
     /**
      *  Checks whether the given value is a promise.
+     *  @private
      *  @param {any} value - Value to be checked.
      *  @return {boolean}
      */
