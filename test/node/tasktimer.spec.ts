@@ -9,7 +9,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
 
     test('TaskTimer namespace', () => {
         expect(TaskTimer.State).toEqual(expect.any(Object));
-        expect(TaskTimer.EventType).toEqual(expect.any(Object));
+        expect(TaskTimer.Event).toEqual(expect.any(Object));
         expect(TaskTimer.Task).toEqual(Task);
     });
 
@@ -182,22 +182,22 @@ describe('TaskTimer (Node/TypeScript)', () => {
         // second task will be added without name set.
         // it should be generated as "task2".
         const autoTaskID = 'task2';
-        const executedEvents: TaskTimer.EventType[] = [];
+        const executedEvents: TaskTimer.Event[] = [];
 
         // pause should do nothing if not running
         expect(() => timer.pause()).not.toThrow();
 
         timer
             .reset()
-            .on(TaskTimer.EventType.STARTED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.STARTED);
+            .on(TaskTimer.Event.STARTED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.STARTED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 console.log('——» started');
             })
-            .on(TaskTimer.EventType.TICK, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.TICK);
+            .on(TaskTimer.Event.TICK, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.TICK);
                 expect(event.source).toEqual(timer);
                 expect(event.data).toBeUndefined();
                 console.log('——» tick', timer.tickCount);
@@ -213,9 +213,9 @@ describe('TaskTimer (Node/TypeScript)', () => {
                     expect(timer.taskCount).toEqual(2);
                 }
             })
-            .on(TaskTimer.EventType.TASK_ADDED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.TASK_ADDED);
+            .on(TaskTimer.Event.TASK_ADDED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.TASK_ADDED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 expect(event.data instanceof Task).toEqual(true);
                 const task = event.data as Task;
@@ -233,18 +233,18 @@ describe('TaskTimer (Node/TypeScript)', () => {
                     expect(timer.taskCount).toEqual(2);
                 }
             })
-            .on(TaskTimer.EventType.TASK, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.TASK);
+            .on(TaskTimer.Event.TASK, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.TASK);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 expect(event.data instanceof Task).toEqual(true);
                 const task = event.data as Task;
                 expect(task).toBeDefined();
                 console.log('——» task (executed)', JSON.stringify(task));
             })
-            .on(TaskTimer.EventType.TASK_COMPLETED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.TASK_COMPLETED);
+            .on(TaskTimer.Event.TASK_COMPLETED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.TASK_COMPLETED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 expect(event.data instanceof Task).toEqual(true);
                 expect(timer.taskCount).toEqual(2);
@@ -254,9 +254,9 @@ describe('TaskTimer (Node/TypeScript)', () => {
                 expect(task.id).toEqual(taskComp.id);
                 timer.remove(autoTaskID);
             })
-            .on(TaskTimer.EventType.TASK_REMOVED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.TASK_REMOVED);
+            .on(TaskTimer.Event.TASK_REMOVED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.TASK_REMOVED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 expect(event.data instanceof Task).toEqual(true);
                 expect(timer.taskCount).toEqual(1);
@@ -267,36 +267,36 @@ describe('TaskTimer (Node/TypeScript)', () => {
                 expect(timer.get(autoTaskID)).toEqual(null);
                 timer.pause();
             })
-            .on(TaskTimer.EventType.PAUSED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.PAUSED);
+            .on(TaskTimer.Event.PAUSED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.PAUSED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 console.log('——» paused');
                 timer.resume();
             })
-            .on(TaskTimer.EventType.RESUMED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.RESUMED);
+            .on(TaskTimer.Event.RESUMED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.RESUMED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 console.log('——» resumed');
                 timer.stop();
             })
-            .on(TaskTimer.EventType.STOPPED, (event: ITaskTimerEvent) => {
-                executedEvents.push(event.type);
-                expect(event.type).toEqual(TaskTimer.EventType.STOPPED);
+            .on(TaskTimer.Event.STOPPED, (event: ITaskTimerEvent) => {
+                executedEvents.push(event.name);
+                expect(event.name).toEqual(TaskTimer.Event.STOPPED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 console.log('——» stopped');
                 timer.reset();
             })
-            .on(TaskTimer.EventType.STOPPED, (event: ITaskTimerEvent) => {
+            .on(TaskTimer.Event.STOPPED, (event: ITaskTimerEvent) => {
                 // second event listener for "stopped"
-                executedEvents.push(event.type);
+                executedEvents.push(event.name);
                 expect(event.source instanceof TaskTimer).toEqual(true);
             })
-            .on(TaskTimer.EventType.RESET, (event: ITaskTimerEvent) => {
+            .on(TaskTimer.Event.RESET, (event: ITaskTimerEvent) => {
                 try {
-                    executedEvents.push(event.type);
-                    expect(event.type).toEqual(TaskTimer.EventType.RESET);
+                    executedEvents.push(event.name);
+                    expect(event.name).toEqual(TaskTimer.Event.RESET);
                     expect(event.source instanceof TaskTimer).toEqual(true);
                     expect(timer.runCount).toEqual(2);
                     console.log('——» reset');
@@ -308,35 +308,35 @@ describe('TaskTimer (Node/TypeScript)', () => {
             });
 
         function checkEvents(): void {
-            expect(executedEvents).toContain(TaskTimer.EventType.STARTED);
-            expect(timer.listenerCount(TaskTimer.EventType.STARTED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.STARTED);
+            expect(timer.listenerCount(TaskTimer.Event.STARTED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.TICK);
-            expect(timer.listenerCount(TaskTimer.EventType.TICK)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.TICK);
+            expect(timer.listenerCount(TaskTimer.Event.TICK)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.TASK_ADDED);
-            expect(timer.listenerCount(TaskTimer.EventType.TASK_ADDED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.TASK_ADDED);
+            expect(timer.listenerCount(TaskTimer.Event.TASK_ADDED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.TASK);
-            expect(timer.listenerCount(TaskTimer.EventType.TASK)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.TASK);
+            expect(timer.listenerCount(TaskTimer.Event.TASK)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.TASK_COMPLETED);
-            expect(timer.listenerCount(TaskTimer.EventType.TASK_COMPLETED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.TASK_COMPLETED);
+            expect(timer.listenerCount(TaskTimer.Event.TASK_COMPLETED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.TASK_REMOVED);
-            expect(timer.listenerCount(TaskTimer.EventType.TASK_REMOVED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.TASK_REMOVED);
+            expect(timer.listenerCount(TaskTimer.Event.TASK_REMOVED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.PAUSED);
-            expect(timer.listenerCount(TaskTimer.EventType.PAUSED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.PAUSED);
+            expect(timer.listenerCount(TaskTimer.Event.PAUSED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.RESUMED);
-            expect(timer.listenerCount(TaskTimer.EventType.RESUMED)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.RESUMED);
+            expect(timer.listenerCount(TaskTimer.Event.RESUMED)).toEqual(1);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.STOPPED);
-            expect(timer.listenerCount(TaskTimer.EventType.STOPPED)).toEqual(2);
+            expect(executedEvents).toContain(TaskTimer.Event.STOPPED);
+            expect(timer.listenerCount(TaskTimer.Event.STOPPED)).toEqual(2);
 
-            expect(executedEvents).toContain(TaskTimer.EventType.RESET);
-            expect(timer.listenerCount(TaskTimer.EventType.RESET)).toEqual(1);
+            expect(executedEvents).toContain(TaskTimer.Event.RESET);
+            expect(timer.listenerCount(TaskTimer.Event.RESET)).toEqual(1);
         }
 
         timer.start();
@@ -366,15 +366,15 @@ describe('TaskTimer (Node/TypeScript)', () => {
             // console.log('timer.tickCount:', timer.tickCount, 'timer.taskRunCount:', timer.taskRunCount);
             if (timer.tickCount === 2) {
                 expect(timer.state).toEqual(TaskTimer.State.RUNNING);
-                expect(event.type).toEqual(TaskTimer.EventType.TICK);
+                expect(event.name).toEqual(TaskTimer.Event.TICK);
                 expect(event.source instanceof TaskTimer).toEqual(true);
             }
         });
         // tslint:disable:no-unnecessary-callback-wrapper
-        timer.on(TaskTimer.EventType.STOPPED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.STOPPED, (event: ITaskTimerEvent) => {
             try {
                 expect(timer.state).toEqual(TaskTimer.State.STOPPED);
-                expect(event.type).toEqual(TaskTimer.EventType.STOPPED);
+                expect(event.name).toEqual(TaskTimer.Event.STOPPED);
                 expect(event.source instanceof TaskTimer).toEqual(true);
                 expect(timer.taskRunCount).toEqual(7);
                 expect(timer.runCount).toEqual(1);
@@ -431,7 +431,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
         expect(taskD.time.stopped).toEqual(0);
         expect(taskD.time.elapsed).toEqual(0);
 
-        timer.on(TaskTimer.EventType.TASK_COMPLETED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TASK_COMPLETED, (event: ITaskTimerEvent) => {
             const task: Task = event.data as Task;
             try {
                 expect(task instanceof Task).toEqual(true);
@@ -462,7 +462,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
         });
         timer.add(task);
 
-        timer.on(TaskTimer.EventType.TICK, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TICK, (event: ITaskTimerEvent) => {
             try {
                 if (timer.tickCount < 3) {
                     console.log('will reset task on tick 3 » tick', timer.tickCount);
@@ -486,13 +486,13 @@ describe('TaskTimer (Node/TypeScript)', () => {
             }
         });
 
-        timer.on(TaskTimer.EventType.TASK_COMPLETED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TASK_COMPLETED, (event: ITaskTimerEvent) => {
             expect(task.totalRuns).toEqual(2);
             expect(task.currentRuns).toEqual(2);
             timer.stop();
         });
 
-        timer.on(TaskTimer.EventType.STOPPED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.STOPPED, (event: ITaskTimerEvent) => {
             try {
                 expect(timer.taskCount).toEqual(1);
                 expect(timer.tickCount).toEqual(6);
@@ -555,7 +555,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
         timer.add(taskDisabled);
 
         let firstAsync = null;
-        timer.on(TaskTimer.EventType.TASK_COMPLETED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TASK_COMPLETED, (event: ITaskTimerEvent) => {
             try {
                 const task: Task = event.data;
                 console.log(task.id, 'completed on tick #', timer.tickCount);
@@ -617,9 +617,9 @@ describe('TaskTimer (Node/TypeScript)', () => {
             }
         });
         timer.add(task);
-        timer.on(TaskTimer.EventType.TASK_ERROR, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TASK_ERROR, (event: ITaskTimerEvent) => {
             try {
-                expect(event.type).toEqual(TaskTimer.EventType.TASK_ERROR);
+                expect(event.name).toEqual(TaskTimer.Event.TASK_ERROR);
                 expect(event.source).toEqual(task);
                 expect(event.error).toEqual(taskError);
                 timer.stop();
@@ -643,9 +643,9 @@ describe('TaskTimer (Node/TypeScript)', () => {
             }
         });
         timer.add(task);
-        timer.on(TaskTimer.EventType.TASK_ERROR, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.TASK_ERROR, (event: ITaskTimerEvent) => {
             try {
-                expect(event.type).toEqual(TaskTimer.EventType.TASK_ERROR);
+                expect(event.name).toEqual(TaskTimer.Event.TASK_ERROR);
                 expect(event.source).toEqual(task);
                 expect(event.error).toEqual(taskError);
                 timer.stop();
@@ -675,7 +675,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
             }
         });
         // tslint:disable:no-unnecessary-callback-wrapper
-        timer.on(TaskTimer.EventType.STOPPED, () => {
+        timer.on(TaskTimer.Event.STOPPED, () => {
             // console.log('stop event fired');
             done();
         });
@@ -711,13 +711,13 @@ describe('TaskTimer (Node/TypeScript)', () => {
                 if ([3, 6].indexOf(cn) === -1) block(interval + 50);
             }
         });
-        timer.on(TaskTimer.EventType.STOPPED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.STOPPED, (event: ITaskTimerEvent) => {
             console.log('stopped, task count:', timer.taskCount);
             console.log(elapsedList);
             expect(timer.taskCount).toEqual(1);
             done();
         });
-        timer.on(TaskTimer.EventType.COMPLETED, (event: ITaskTimerEvent) => {
+        timer.on(TaskTimer.Event.COMPLETED, (event: ITaskTimerEvent) => {
             try {
                 console.log('completed, run count:', timer.taskRunCount);
                 expect(timer.taskRunCount).toEqual(totalRuns);
