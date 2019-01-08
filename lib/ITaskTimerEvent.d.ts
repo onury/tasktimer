@@ -4,10 +4,10 @@ import { TaskTimer } from '.';
  */
 interface ITaskTimerEvent {
     /**
-     *  Indicates the type of the event.
-     *  @type {TaskTimer.EventType}
+     *  Indicates the name of the event.
+     *  @type {TaskTimer.Event}
      */
-    type: TaskTimer.EventType;
+    name: TaskTimer.Event;
     /**
      *  Indicates the source object fired this event.
      *  @type {any}

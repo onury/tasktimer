@@ -1,3 +1,4 @@
+/** @private */
 declare const utils: {
     BROWSER: boolean;
     NODE: boolean;
@@ -10,6 +11,7 @@ declare const utils: {
     clearImmediate(id: any): void;
     /**
      *  Checks whether the given value is a promise.
+     *  @private
      *  @param {any} value - Value to be checked.
      *  @return {boolean}
      */
