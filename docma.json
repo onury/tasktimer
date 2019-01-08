@@ -15,7 +15,7 @@
         "hierarchy": true,
         "sort": "grouped",
         "relativePath": null,
-        "filter": null,
+        "filter": "^((?!EventEmitter).)*$",
         "allowUnknownTags": true,
         "plugins": [],
         "includePattern": ".+\\.js(doc|x)?$"
@@ -37,7 +37,8 @@
         "base": "/tasktimer",
         "entrance": "content:guide",
         "routing": "path",
-        "server": "github"
+        "server": "github",
+        "favicon": "./design/favicon.ico"
     },
     "template": {
         "path": "zebra",
