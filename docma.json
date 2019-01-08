@@ -47,7 +47,7 @@
                 "label": "TaskTimer",
                 "href": "/tasktimer/"
             },
-            "logo": null,                   // URL String or { dark: String, light: String }
+            "logo": "img/tasktimer-logo-sm.png", // URL String or { dark: String, light: String }
             "sidebar": {
                 "enabled": true,
                 "outline": "tree",          // "flat" | "tree"
@@ -102,6 +102,11 @@
         },
         "./CHANGELOG.md"
     ],
+    "assets": {
+        "/img": [
+            "./design/tasktimer-logo-sm.png"
+        ]
+    },
     "dest": "../onury.github.io/tasktimer",
     "clean": true
 }
