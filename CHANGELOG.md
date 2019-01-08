@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## 2.0.0 (2019-01-07)
+## 2.0.0 (2019-01-08)
 This release includes various **breaking changes**. Please see the [API reference][docs]. Also note that this version is completely re-written in TypeScript.
 
 ### Changed
@@ -12,7 +12,6 @@ This release includes various **breaking changes**. Please see the [API referenc
 - **Breaking**: The task ID is optional (auto-generated when omitted) when task is created via `#add()`. But `callback` is now required.
 - **Breaking**: `TaskTimer#removeTask()` renamed to `TaskTimer#remove()`.
 - **Breaking**: `TaskTimer#getTask()` renamed to `TaskTimer#get()`.
-- **Breaking**: `TaskTimer.Event` enumeration is renamed to `TaskTimer.EventType`.
 - **Breaking**: `TaskTimer.State` enumeration type is changed to `string`. (meaning enum values are also changed.)
 
 ### Added
@@ -22,9 +21,9 @@ This release includes various **breaking changes**. Please see the [API referenc
 - Task option: `enabled: boolean` indicating whether the task is currently enabled. This essentially gives you a manual control over execution. The task will always bypass the callback while this is set to `false`.
 - Task option: `tickDelay: number` to specify a number of ticks to allow before running the task for the first time.
 - Task option: `removeOnCompleted: number` indicating whether to remove the task (to free up memory) when task has completed its executions (runs). For this to take affect, the task should have `totalRuns` and/or `stopDate` configured. Default: `false`
-- Event: `TaskTimer.EventType.TASK_COMPLETED` (`"taskCompleted"`) Emitted when a task has completed all of its executions (runs) or reached its stopping date/time (if set). Note that this event will only be fired if the tasks has a `totalRuns` limit or a `stopDate` value set.
-- Event: `TaskTimer.EventType.COMPLETED` (`"completed"`) Emitted when *all* tasks have completed all of their executions (runs) or reached their stopping date/time (if set). Note that this event will only be fired if *each* task either have a `totalRuns` limit or a `stopDate` value set, or both.
-- Event: `TaskTimer.EventType.TASK_ERROR` (`"taskError"`) Catches and emits errors produced (if any) on a task execution.
+- Event: `TaskTimer.Event.TASK_COMPLETED` (`"taskCompleted"`) Emitted when a task has completed all of its executions (runs) or reached its stopping date/time (if set). Note that this event will only be fired if the tasks has a `totalRuns` limit or a `stopDate` value set.
+- Event: `TaskTimer.Event.COMPLETED` (`"completed"`) Emitted when *all* tasks have completed all of their executions (runs) or reached their stopping date/time (if set). Note that this event will only be fired if *each* task either have a `totalRuns` limit or a `stopDate` value set, or both.
+- Event: `TaskTimer.Event.TASK_ERROR` (`"taskError"`) Catches and emits errors produced (if any) on a task execution.
 - `Task#time` getter that returns an object `{ started, stopped, elapsed }` defining the life-time of a task.
 - `TaskTimer#runCount: boolean` indicating the total number of timer runs, including resumed runs.
 - `TaskTimer#taskRunCount: boolean` indicating the total number of all task executions (runs).
