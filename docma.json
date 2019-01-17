@@ -76,17 +76,15 @@
                 "animations": true,
                 "menu": [
                     {
-                        "iconClass": "ico-mouse-pointer",
                         "label": "Guide",
                         "href": "./"
                     },
                     {
-                        "iconClass": "ico-book",
                         "label": "API Reference",
                         "href": "./api"
                     },
                     {
-                        "iconClass": "ico-md ico-github",
+                        "iconClass": "fa-lg fb-github",
                         "label": "GitHub",
                         "href": "https://github.com/onury/tasktimer",
                         "target": "_blank"
