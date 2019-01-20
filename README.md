@@ -18,8 +18,6 @@
 </p>
 <br />
 
-WILL BE RELEASED ON 08 Jan 2019  
-
 An accurate timer utility for running periodic tasks on the given interval ticks or dates.
 
 ## Why `TaskTimer`?
