@@ -45,7 +45,7 @@
     "homepage": "https://github.com/onury/tasktimer#readme",
     "devDependencies": {
         "@types/expect-puppeteer": "^3.3.0",
-        "@types/jest": "^23.3.12",
+        "@types/jest": "^23.3.13",
         "@types/jest-environment-puppeteer": "^2.2.1",
         "@types/puppeteer": "^1.11.1",
         "coveralls": "^3.0.2",
@@ -55,15 +55,15 @@
         "jest": "^23.6.0",
         "jest-cli": "^23.6.0",
         "jest-environment-node": "^23.4.0",
-        "jest-puppeteer": "^3.7.0",
+        "jest-puppeteer": "^3.8.0",
         "puppeteer": "^1.11.0",
         "rimraf": "^2.6.3",
-        "table": "^5.1.1",
+        "table": "^5.2.1",
         "ts-jest": "^23.10.5",
         "ts-loader": "^5.3.3",
-        "typescript": "^3.2.2",
+        "typescript": "^3.2.4",
         "uglifyjs-webpack-plugin": "^2.1.1",
-        "webpack": "^4.28.3",
+        "webpack": "^4.29.0",
         "webpack-cli": "^3.2.1"
     },
     "dependencies": {
