@@ -1,6 +1,6 @@
 import { TaskCallback } from '.';
 /**
- *  Interface for task options.
+ *  Interface for base task options.
  */
 interface ITaskBaseOptions {
     /**
@@ -86,6 +86,10 @@ interface ITaskBaseOptions {
      */
     callback: TaskCallback;
 }
+/**
+ *  Interface for task options.
+ *  @extends ITaskBaseOptions
+ */
 interface ITaskOptions extends ITaskBaseOptions {
     /**
      *  Unique ID of the task. Required if creating a `Task` instance directly.
