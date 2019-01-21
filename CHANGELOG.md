@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## 2.0.0 (2019-01-08)
+## 2.0.1 (2019-01-21)
 This release includes various **breaking changes**. Please see the [API reference][docs]. Also note that this version is completely re-written in TypeScript.
 
 ### Changed
@@ -31,6 +31,7 @@ This release includes various **breaking changes**. Please see the [API referenc
 
 ### Fixed
 - An issue where default task options would not be set in some cases. Fixes issue [#5](https://github.com/onury/tasktimer/issues/5).
+- An issue where webpack would mock or polyfill Node globals unnecessarily. (v2.0.1 patch)
 
 ### Removed
 - **Breaking**: `TaskTimer#resetTask()` is removed. Use `#get(name).reset()` to reset a task.
