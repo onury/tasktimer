@@ -45,7 +45,7 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
   *  @name TaskTimer#eventNames
   *  @function
   *
-  *  @returns {Array} -
+  *  @returns {Array} - List of event names.
   */
 
 /**
@@ -56,6 +56,7 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
  *  times.
  *  @name TaskTimer#on
  *  @function
+ *  @alias TaskTimer#addListener
  *  @chainable
  *
  *  @param {TaskTimer.Event} eventName - The name of the event to be added.
@@ -63,6 +64,14 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
  *  @param {*} [context=this] - The context to invoke the listener with.
  *
  *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
+ *
+ *  @example
+ *  const timer = new Timer(1000);
+ *  // add a listener to be invoked when timer has stopped.
+ *  timer.on(TaskTimer.Event.STOPPED, () => {
+ *      console.log('Timer has stopped!');
+ *  });
+ *  timer.start();
  */
 
 /**
@@ -207,16 +216,17 @@ class TaskTimer extends EventEmitter {
      *      console.log('tick count: ' + timer.tickCount);
      *      console.log('elapsed time: ' + timer.time.elapsed + ' ms.');
      *  });
-     *  // Or add a task named 'heartbeat' that runs every 5 ticks and a total of 10 times.
-     *  const task = {
+     *  // add a task named 'heartbeat' that runs every 5 ticks and a total of 10 times.
+     *  const task1 = {
      *      id: 'heartbeat',
-     *      tickInterval: 5, // ticks
-     *      totalRuns: 10,   // times
-     *      callback: function (task) {
+     *      tickDelay: 20,   // ticks (to wait before first run)
+     *      tickInterval: 5, // ticks (interval)
+     *      totalRuns: 10,   // times to run
+     *      callback(task) {
      *          console.log(task.id + ' task has run ' + task.currentRuns + ' times.');
      *      }
      *  };
-     *  timer.addTask(task).start();
+     *  timer.add(task1).start();
      */
     constructor(options?: ITaskTimerOptions | number) {
         super();
@@ -240,11 +250,13 @@ class TaskTimer extends EventEmitter {
     // ---------------------------
 
     /**
-     *  Gets or sets the timer interval in milliseconds.
+     *  Gets or sets the base timer interval in milliseconds.
      *
      *  Since the tasks run on ticks instead of millisecond intervals; this
      *  value operates as the base resolution for all tasks. If you are running
-     *  heavy tasks; lower interval requires higher CPU power.
+     *  heavy tasks, lower interval requires higher CPU power. This value can be
+     *  updated any time.
+     *
      *  @name TaskTimer#interval
      *  @type {number}
      */
@@ -256,10 +268,30 @@ class TaskTimer extends EventEmitter {
     }
 
     /**
-     *  Gets or sets whether the timer should auto-adjust the delay between
-     *  ticks if it's off due to task load. Note that precision will be as high
-     *  as possible but it still can be off by a few milliseconds; depending on
-     *  the CPU or the load.
+     *  Gets or sets whether timer precision enabled.
+     *
+     *  Because of the single-threaded, asynchronous nature of JavaScript, each
+     *  execution takes a piece of CPU time, and the time they have to wait will
+     *  vary, depending on the load. This creates a latency and cumulative
+     *  difference in asynchronous timers; that gradually increase the
+     *  inacuraccy. `TaskTimer` overcomes this problem as much as possible:
+     *
+     *  <li>The delay between each tick is auto-adjusted when it's off
+     *  due to task/CPU loads or clock drifts.</li>
+     *  <li>In Node.js, `TaskTimer` also makes use of `process.hrtime()`
+     *  high-resolution real-time. The time is relative to an arbitrary
+     *  time in the past (not related to the time of day) and therefore not
+     *  subject to clock drifts.</li>
+     *  <li>The timer may hit a synchronous / blocking task; or detect significant
+     *  time drift (longer than the base interval) due to JS event queue, which
+     *  cannot be recovered by simply adjusting the next delay. In this case, right
+     *  from the next tick onward; it will auto-recover as much as possible by
+     *  running "immediate" tasks until it reaches the proper time vs tick/run
+     *  balance.</li>
+     *
+     *  <blockquote><i>Note that precision will be as high as possible but it still
+     *  can be off by a few milliseconds; depending on the CPU or the load.</i>
+     *  </blockquote>
      *  @name TaskTimer#precision
      *  @type {boolean}
      */
@@ -377,7 +409,7 @@ class TaskTimer extends EventEmitter {
      *  @memberof TaskTimer
      *  @chainable
      *
-     *  @param {Task|ITaskOptions|TaskCallback|Array<any>} task - Either a
+     *  @param {Task|ITaskOptions|TaskCallback|Array} task - Either a
      *  single task, task options object or the callback function; or a mixture
      *  of these as an array.
      *
@@ -730,7 +762,7 @@ namespace TaskTimer {
 
     /**
      *  Represents the class that holds the configurations and the callback function
-     *  required to run a task.
+     *  required to run a task. See {@link api/#Task|class information}.
      *  @name TaskTimer.Task
      *  @class
      */
