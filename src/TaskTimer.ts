@@ -127,19 +127,20 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
  */
 
 /**
- *  A timer utility for running periodic tasks on the given interval ticks.
- *  This is useful when you want to run or schedule multiple tasks on a single
- *  timer instance.
+ *  A timer utility for running periodic tasks on the given interval ticks. This
+ *  is useful when you want to run or schedule multiple tasks on a single timer
+ *  instance.
  *
  *  This class extends `EventEmitter3` which is an `EventEmitter` implementation
- *  for both Node and browser. Only a small set of its methods are documented in
- *  this documentation. For a complete list, refer to Node.js documentation.
+ *  for both Node and browser. For detailed information, refer to Node.js
+ *  documentation.
  *  @class
  *  @global
  *
  *  @extends EventEmitter
  *
- *  @see {@link https://nodejs.org/api/events.html#events_class_eventemitter|EventEmitter}
+ *  @see
+ *  {@link https://nodejs.org/api/events.html#events_class_eventemitter|EventEmitter}
  */
 class TaskTimer extends EventEmitter {
 
