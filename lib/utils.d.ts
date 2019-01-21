@@ -1,7 +1,7 @@
 /** @private */
 declare const utils: {
-    BROWSER: boolean;
     NODE: boolean;
+    BROWSER: boolean;
     type(o: any): string;
     isset(o: any): boolean;
     ensureArray(o: any): any[];
