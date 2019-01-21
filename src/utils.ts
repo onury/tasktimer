@@ -1,12 +1,14 @@
 
 const proto = Object.prototype;
-const BROWSER = typeof window !== 'undefined';
-const NODE = !BROWSER;
+const NODE = typeof setImmediate === 'function'
+    && typeof process === 'object'
+    && typeof process.hrtime === 'function';
+const BROWSER = !NODE;
 
 /** @private */
 const utils = {
-    BROWSER,
     NODE,
+    BROWSER,
     type(o: any): string {
         return proto.toString.call(o).match(/\s(\w+)/i)[1].toLowerCase();
     },
@@ -30,7 +32,7 @@ const utils = {
     },
     setImmediate(cb: (...args: any[]) => void, ...args: any[]): any {
         /* istanbul ignore if */
-        if (BROWSER) { // tested separately
+        if (utils.BROWSER) { // tested separately
             return setTimeout(cb.apply(null, args), 0);
         }
         return setImmediate(cb, ...args);
@@ -39,7 +41,7 @@ const utils = {
         /* istanbul ignore next */
         if (!id) return;
         /* istanbul ignore if */
-        if (BROWSER) return clearTimeout(id); // tested separately
+        if (utils.BROWSER) return clearTimeout(id); // tested separately
         clearImmediate(id);
     },
     /**
