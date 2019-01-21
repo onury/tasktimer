@@ -95,6 +95,7 @@
     },
     "src": [
         "./lib/tasktimer.js",
+        "./docs/interfaces.jsdoc",
         {
             "guide": "./README.md"
         },
