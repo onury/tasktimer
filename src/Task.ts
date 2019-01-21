@@ -246,7 +246,7 @@ class Task {
     /**
      *  Serialization to JSON.
      *
-     *  Never return string From `toJSON()`. It should return an object.
+     *  Never return string from `toJSON()`. It should return an object.
      *  @private
      */
     toJSON(): any {
