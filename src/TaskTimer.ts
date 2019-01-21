@@ -66,7 +66,7 @@ const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
  *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
  *
  *  @example
- *  const timer = new Timer(1000);
+ *  const timer = new TaskTimer(1000);
  *  // add a listener to be invoked when timer has stopped.
  *  timer.on(TaskTimer.Event.STOPPED, () => {
  *      console.log('Timer has stopped!');
