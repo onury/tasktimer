@@ -13,6 +13,10 @@ const publicPath = 'lib/';
 module.exports = env => {
 
     const config = {
+        // turn off NodeStuffPlugin and NodeSourcePlugin plugins. Otherwise
+        // objects like `process` are mocked or polyfilled.
+        node: false, // !!! IMPORTANT
+
         context: __dirname, // to automatically find tsconfig.json
         cache: false,
         entry: path.join(srcPath, 'index.ts'),
