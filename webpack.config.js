@@ -1,5 +1,3 @@
-'use strict';
-
 const path = require('path');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
