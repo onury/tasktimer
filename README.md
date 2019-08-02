@@ -10,7 +10,7 @@
     <br />
     <a href="https://www.npmjs.com/package/tasktimer"><img src="http://img.shields.io/npm/v/tasktimer.svg?style=flat-square" alt="npm" /></a>
     <a href="https://github.com/onury/tasktimer"><img src="https://img.shields.io/github/release/onury/tasktimer.svg?style=flat-square" alt="Release" /></a>
-    <a href="https://www.npmjs.com/package/perfy"><img src="https://img.shields.io/npm/dm/tasktimer.svg?style=flat-square" alt="Downloads" /></a>
+    <a href="https://www.npmjs.com/package/tasktimer"><img src="https://img.shields.io/npm/dm/tasktimer.svg?style=flat-square" alt="Downloads" /></a>
     <a href="https://github.com/onury/tasktimer/blob/master/LICENSE"><img src="http://img.shields.io/npm/l/tasktimer.svg?style=flat-square" alt="License" /></a>
     <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/written%20in-%20TypeScript%20-6575ff.svg?style=flat-square" alt="TypeScript" /></a>
     <a href="https://onury.io/tasktimer/api"><img src="https://img.shields.io/badge/docs-click_to_read-c27cf4.svg?documentation=click_to_read&style=flat-square" alt="Documentation" /></a>
