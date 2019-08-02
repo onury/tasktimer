@@ -338,12 +338,17 @@ class TaskTimer extends EventEmitter {
      *  @readonly
      */
     get time(): ITimeInfo {
-        const current = this.state !== TaskTimer.State.STOPPED ? Date.now() : this._.stopTime;
-        return Object.freeze({
-            started: this._.startTime,
-            stopped: this._.stopTime,
-            elapsed: current - this._.startTime
-        });
+        const { startTime, stopTime } = this._;
+        const t: ITimeInfo = {
+            started: startTime,
+            stopped: stopTime,
+            elapsed: 0
+        };
+        if (startTime) {
+            const current = this.state !== TaskTimer.State.STOPPED ? Date.now() : stopTime;
+            t.elapsed = current - startTime;
+        }
+        return Object.freeze(t);
     }
 
     /**
