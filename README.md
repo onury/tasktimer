@@ -37,7 +37,7 @@ Secondly, I needed a task manager that can handle multiple tasks on different in
 - **Stateful tasks**: i.e. ability to auto-stop when all tasks complete.
 - `TaskTimer` is also an **`EventEmitter`**.
 - **Universal** module. Works in both Node and Browser. 
-- Small size (less than 6kB minified, gzipped).
+- Small size (4.5kB minified, gzipped).
 - Completely **re-written** in **TypeScript**. (version 2.0.0+)
 
 ## Installation
