@@ -54,6 +54,7 @@
         "docma": "^3.2.2",
         "express": "^4.17.1",
         "fork-ts-checker-webpack-plugin": "^1.4.3",
+        "is-ci": "^2.0.0",
         "jest": "^24.8.0",
         "jest-cli": "^24.8.0",
         "jest-environment-node": "^24.8.0",
