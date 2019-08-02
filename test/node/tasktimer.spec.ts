@@ -17,6 +17,7 @@ describe('TaskTimer (Node/TypeScript)', () => {
         let timer = new TaskTimer();
         expect(timer.interval).toEqual(1000);
         expect(timer.stopOnCompleted).toEqual(false);
+        expect(timer.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
 
         timer = new TaskTimer({
             interval: 2500,
