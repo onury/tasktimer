@@ -222,7 +222,7 @@ class TaskTimer extends EventEmitter {
      *      tickDelay: 20,   // ticks (to wait before first run)
      *      tickInterval: 5, // ticks (interval)
      *      totalRuns: 10,   // times to run
-     *      callback(task) {
+     *      callback(task) { // can also be an async function, returning a promise
      *          console.log(task.id + ' task has run ' + task.currentRuns + ' times.');
      *      }
      *  };
