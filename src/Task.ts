@@ -351,6 +351,10 @@ class Task {
         if (!options || !options.id) {
             throw new Error('A unique task ID is required.');
         }
+        
+        if(typeof options.id !== 'string') {
+            throw new Error('Task ID must be a string');
+        }
 
         if (typeof options.callback !== 'function') {
             throw new Error('A callback function is required for a task to run.');
@@ -368,7 +372,7 @@ class Task {
             ...DEFAULT_TASK_OPTIONS
         };
 
-        this._.id = String(options.id);
+        this._.id = options.id;
         this._.callback = options.callback;
         this._.startDate = options.startDate || null;
         this._.stopDate = options.stopDate || null;
