@@ -33,7 +33,7 @@ const utils = {
     setImmediate(cb: (...args: any[]) => void, ...args: any[]): any {
         /* istanbul ignore if */
         if (utils.BROWSER) { // tested separately
-            return setTimeout(cb.apply(null, args), 0);
+            return setTimeout(cb.bind(null, ...args), 0);
         }
         return setImmediate(cb, ...args);
     },
