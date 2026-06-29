@@ -25,18 +25,43 @@
   display: block;
   pointer-events: none;
 }
-/* Title + copy sit above the animation. */
-.hero .copy { position: relative; z-index: 3; }
+/* All hero content (title, tagline, AND the actions row) sits above the
+ * animation. Targeting the .stack wrapper covers the actions too — they are a
+ * sibling of .copy, not nested inside it, so a .copy-only rule would leave the
+ * buttons under the canvas (the dark stage then bleeds over them). */
+.hero .stack { position: relative; z-index: 3; }
 
 /* Keep the hero copy legible over the dark stage regardless of theme. */
 .hero .copy h1 { text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55); }
-.hero .tagline { color: #d9dbe0; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); }
+.hero .tagline {
+  color: #d9dbe0;
+  /* A soft, spread dark halo behind the description — no offset, generous blur,
+     so it reads as a readable shadow under the text rather than an embossed edge. */
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.96), 0 0 16px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 0, 0, 0.6),
+    0 3px 16px rgba(0, 0, 0, 0.72);
+}
 .hero .actions a.minimal { color: #e6e8ec; }
+
+/* A subtle per-line backing behind the tagline (commented out — trying the soft
+   text-shadow halo above instead). box-decoration-break:clone gives each wrapped
+   line its own hugging box. */
+/*
+.hero .tagline .tag-hl {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  background-color: rgba(10, 8, 18, 0.32);
+  color: #eef0f4;
+  padding: 0.1em 0.4em;
+  border-radius: 0.32em;
+  line-height: 1.9;
+}
+*/
 
 /* ── Light mode only — the stage is light gray, so hero copy goes dark.
  * (Dark mode is unchanged.) ─────────────────────────────────────────────── */
 :root[data-theme='light'] .hero .copy h1 { text-shadow: none; }
-:root[data-theme='light'] .hero .tagline { color: #1b1c20; text-shadow: none; }
+:root[data-theme='light'] .hero .tagline { color: #1b1c20; text-shadow: 0 0 10px rgba(255, 255, 255, 0.85), 0 0 18px rgba(255, 255, 255, 0.65); }
+/* :root[data-theme='light'] .hero .tagline .tag-hl { background-color: rgba(255, 255, 255, 0.42); color: #11131a; } */
 :root[data-theme='light'] .hero .actions a.minimal { color: #000; }
 :root[data-theme='light'] .hero .actions a.primary { color: #000; }
 :root[data-theme='light'] header.header { border-bottom: 1px solid rgba(0, 0, 0, 0.08); }

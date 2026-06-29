@@ -27,17 +27,23 @@
     // ── tunables ────────────────────────────────────────────────────────────
     const LANES = [
       { interval: 2, color: [56, 211, 240] },  // cyan
-      { interval: 3, color: [167, 139, 250] },  // violet
-      { interval: 5, color: [244, 114, 182] }   // pink/crimson
+      { interval: 3, color: [250, 204, 21] },   // yellow
+      { interval: 5, color: [251, 146, 60] }    // orange
     ];
     const DONE = [52, 224, 160];   // completed — mint/success
-    const HEAD = [120, 230, 250];  // playhead — bright cyan
+    const HEAD = [244, 80, 122];   // playhead — pinky red (organic laser)
     const MOVE_MS = 300;           // step forward (move) duration
     const PAUSE_MS = 440;          // stop-on-tick (fire) duration
-    const FLASH = 520;             // completion flash duration, ms
+    const FLASH = 520;             // completion pop/glow duration, ms
+    const COLOR_MS = 1000;         // node-color → green morph duration, ms (slower = more obvious)
     const FADE = 130;              // bottom fade-out height, px
     const HEAD_X = 0.32;           // playhead position (fraction of width)
+    const FOCUS_X = 0.32;          // arc apex / depth-of-field focus — at the playhead (asymmetric bend)
     const BAND_Y = 0.56;           // timeline band center (fraction of height)
+    const ARC_F = 0.085;           // arc bow as a fraction of height (lift at the focus)
+    const DOF = 5;                 // max depth-of-field blur at the far ends, px
+    const NEAR_FLOOR = 0.16;       // residual nearness at the far edges (0 = vanish)
+    const NEAR_POW = 1.7;          // falloff curve from focus → edges
 
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -57,11 +63,12 @@
     const bgx = bg.getContext('2d');
 
     let W = 0, H = 0, dpr = 1, raf = 0, running = false, visible = false;
-    let GAP = 120, R = 10, bandTop = 0, laneGap = 56, phX = 0;
+    let GAP = 120, R = 10, bandTop = 0, laneGap = 56, phX = 0, fx = 0, arc = 40;
 
     // playhead state machine: move → pause(fire) → move …
     let tick = 1, phase = 'move', phaseT = now(), head = 0; // head = float tick position
     let events = []; // completed nodes: { lane, t, t0 }
+    let hitT = -1, hitN = 0; // last beam strike: timestamp + how many checks landed at once
 
     function layout() {
       const r = hero.getBoundingClientRect();
@@ -103,11 +110,46 @@
       laneGap = clamp(H * 0.12, 44, 64);
       bandTop = H * BAND_Y - laneGap; // 3 lanes centered on H*BAND_Y
       phX = W * HEAD_X;
+      fx = W * FOCUS_X;
+      arc = clamp(H * ARC_F, 34, 74);
       buildBg();
     }
 
-    function laneY(i) { return bandTop + i * laneGap; }
     function screenX(t) { return phX + (t - head) * GAP; }
+
+    // Nearness 1 at the focus (playhead), falling to NEAR_FLOOR at each edge —
+    // drives the arc bow, the lane spread, and node scale + depth-of-field blur.
+    // Each side is normalized to its own width so the falloff reads symmetric
+    // even though the focus sits left of center.
+    function near(x) {
+      const d = x < fx ? (fx - x) / fx : (x - fx) / (W - fx);
+      return clamp(1 - Math.pow(clamp(d, 0, 1), NEAR_POW), NEAR_FLOOR, 1);
+    }
+    // Lane i (0..2) at screen x: the band bows up toward the focus and the lanes
+    // spread apart there (perspective), converging as they recede.
+    function laneY(i, x) {
+      const n = near(x);
+      const centerY = bandTop + laneGap - arc * n;       // bow up at the focus
+      const spread = laneGap * (0.42 + 0.58 * n);        // wide near, narrow far
+      return centerY + (i - 1) * spread;
+    }
+    function bandTopAt(x) { return laneY(0, x) - laneGap * (0.3 + 0.4 * near(x)); }
+    function bandBotAt(x) { return laneY(LANES.length - 1, x) + laneGap * (0.3 + 0.4 * near(x)); }
+    function scaleAt(x) { return lerp(0.5, 1.14, near(x)); }
+
+    // a stable random-looking 2-digit number per tick (hashed, so it doesn't flicker)
+    function tagNum(t) {
+      let h = (t * 2654435761) >>> 0;
+      h ^= h >>> 15; h = (h * 2246822519) >>> 0;
+      return String(10 + (h % 90));
+    }
+    function rrect(x, y, w, h, r) {
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+      ctx.beginPath();
+      ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+    }
 
     function update(t) {
       const e = t - phaseT;
@@ -116,7 +158,11 @@
         head = lerp(tick - 1, tick, k);
         if (e >= MOVE_MS) {
           head = tick; phase = 'pause'; phaseT = t;
-          LANES.forEach((ln, i) => { if (tick % ln.interval === 0) events.push({ lane: i, t: tick, t0: t }); });
+          let fired = 0;
+          LANES.forEach((ln, i) => {
+            if (tick % ln.interval === 0) { events.push({ lane: i, t: tick, t0: t }); fired++; }
+          });
+          if (fired) { hitT = t; hitN = fired; } // checks just struck the beam
         }
       } else if (e >= PAUSE_MS) {
         tick++; phase = 'move'; phaseT = t;
@@ -150,35 +196,45 @@
     function drawNode(x, y, lane, t, time) {
       const fired = t < tick || (t === tick && phase === 'pause');
       const col = LANES[lane].color;
+      const n = near(x);
+      const blur = (1 - n) * DOF;          // depth-of-field: far nodes blur
+      const rB = R * scaleAt(x);            // perspective scale: near big, far small
+      ctx.save();
+      if (blur > 0.35) ctx.filter = `blur(${blur.toFixed(1)}px)`;
+
       if (!fired) {
-        // pending — dim hollow node ahead of the playhead, fading in from afar
-        const af = clamp((W - x) / (W - phX), 0.35, 1);
-        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2);
-        ctx.strokeStyle = rgba(col, 0.5 * af); ctx.lineWidth = 2; ctx.stroke();
-        ctx.beginPath(); ctx.arc(x, y, R * 0.34, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(col, 0.3 * af); ctx.fill();
+        // pending — hollow node ahead of the playhead, hazier the farther off
+        const af = clamp((W - x) / (W - phX), 0.42, 1) * lerp(0.72, 1, n);
+        ctx.beginPath(); ctx.arc(x, y, rB, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(col, 0.72 * af); ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, rB * 0.36, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(col, 0.5 * af); ctx.fill();
+        ctx.restore();
         return;
       }
+
       // completed — fades as it recedes left into the "past"
-      ctx.save();
-      ctx.globalAlpha = lerp(0.32, 1, clamp(x / phX, 0, 1));
+      ctx.globalAlpha = lerp(0.3, 1, clamp(x / phX, 0, 1)) * lerp(0.7, 1, n);
       const ev = eventAt(lane, t);
-      const fl = ev ? clamp((time - ev.t0) / FLASH, 0, 1) : 1;
-      const pop = ev ? 1 + 0.5 * (1 - easeOut(fl)) : 1; // brief scale-up on completion
+      const fl = ev ? clamp((time - ev.t0) / FLASH, 0, 1) : 1;            // pop/glow (impact)
+      const cf = ev ? easeIO(clamp((time - ev.t0) / COLOR_MS, 0, 1)) : 1; // color morph (slow)
+      const pop = ev ? 1 + 0.5 * (1 - easeOut(fl)) : 1; // brief scale-up on landing
       const glow = ev ? (1 - easeOut(fl)) : 0;
-      const fillC = mix(col, DONE, ev ? easeOut(fl) : 1);
-      const rr = R * pop;
-      if (glow > 0) { ctx.shadowColor = rgba(DONE, glow); ctx.shadowBlur = R * 1.7 * glow; }
+      const fillC = mix(col, DONE, cf); // node color → green, slow & obvious
+      const rr = rB * pop;
+      if (glow > 0) { ctx.shadowColor = rgba(DONE, glow); ctx.shadowBlur = rB * 1.7 * glow; }
       ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2);
-      ctx.fillStyle = rgba(fillC, 0.95); ctx.fill();
+      ctx.fillStyle = rgba(fillC, 0.96); ctx.fill();
       ctx.shadowBlur = 0;
-      // checkmark
-      const k = rr * 0.52, a = 0.55 + 0.45 * (ev ? easeOut(fl) : 1);
+      // checkmark draws in as the node greens — the transformation
+      const cm = clamp(cf * 1.2, 0, 1);
+      const k = rr * 0.52 * lerp(0.72, 1, cm);
+      ctx.globalAlpha *= 0.18 + 0.82 * cm;
       ctx.beginPath();
       ctx.moveTo(x - k * 0.5, y);
       ctx.lineTo(x - k * 0.1, y + k * 0.42);
       ctx.lineTo(x + k * 0.55, y - k * 0.46);
-      ctx.strokeStyle = rgba([8, 10, 14], a); ctx.lineWidth = Math.max(1.6, R * 0.26);
+      ctx.strokeStyle = rgba([8, 10, 14], 1); ctx.lineWidth = Math.max(1.5, rr * 0.26);
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
       ctx.restore();
     }
@@ -192,48 +248,138 @@
       const tMin = Math.floor(head - phX / GAP) - 1;
       const tMax = Math.ceil(head + (W - phX) / GAP) + 1;
 
-      // lane baselines + tick ruler
-      ctx.lineWidth = 1.5;
+      // curved lane baselines (sampled along the arc)
+      const STEP = 22;
       for (let i = 0; i < LANES.length; i++) {
-        ctx.strokeStyle = rgba(LANES[i].color, 0.12);
-        ctx.beginPath(); ctx.moveTo(0, laneY(i)); ctx.lineTo(W, laneY(i)); ctx.stroke();
+        ctx.beginPath();
+        for (let x = 0; x <= W + STEP; x += STEP) {
+          const xx = Math.min(x, W), y = laneY(i, xx);
+          x === 0 ? ctx.moveTo(xx, y) : ctx.lineTo(xx, y);
+        }
+        ctx.strokeStyle = rgba(LANES[i].color, 0.1); ctx.lineWidth = 1.5; ctx.stroke();
       }
-      const top = laneY(0) - laneGap * 0.7, bot = laneY(LANES.length - 1) + laneGap * 0.7;
+
+      // tick gridlines spanning the (curved) band at each tick
       for (let tt = Math.max(1, tMin); tt <= tMax; tt++) {
         const x = screenX(tt);
         if (x < -GAP || x > W + GAP) continue;
         const passed = tt <= (phase === 'pause' ? tick : tick - 1);
-        ctx.strokeStyle = `rgba(150,160,190,${passed ? 0.05 : 0.09})`;
+        const top = bandTopAt(x), bot = bandBotAt(x);
+        ctx.strokeStyle = `rgba(150,160,190,${(passed ? 0.05 : 0.09) * (0.4 + 0.6 * near(x))})`;
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
-        // tick tip mark on the top ruler
-        ctx.fillStyle = `rgba(170,180,210,${passed ? 0.12 : 0.22})`;
-        ctx.fillRect(x - 1, top - 1, 2, 7);
+        ctx.fillStyle = `rgba(170,180,210,${(passed ? 0.12 : 0.22) * near(x)})`;
+        ctx.fillRect(x - 1, top - 1, 2, 6);
       }
 
-      // task nodes
+      // playhead — an organic, gradient "laser" UNDER the nodes: soft layered
+      // glow that fades into nothing at both ends (no hard caps), warming toward
+      // white as checkmarks strike it. The strike is a gentle bloom — felt, but
+      // it stays behind the checks so it never out-shines the check's own pop.
+      const phTop = bandTopAt(phX) - 10, phBot = bandBotAt(phX) + 10;
+      const midY = (phTop + phBot) / 2;
+      const charge = hitT >= 0 ? clamp(1 - (t - hitT) / 640, 0, 1) : 0; // decays after a strike
+      const k = easeOut(charge);
+      const heat = k * clamp(hitN / 2, 0.6, 1.35); // brighter when several checks land together
+      const WHITE = [255, 255, 255];
+      // a vertical gradient that fades to transparent at the ends (organic spindle)
+      const vgrad = (col, a) => {
+        const g = ctx.createLinearGradient(phX, phTop, phX, phBot);
+        g.addColorStop(0, rgba(col, 0));
+        g.addColorStop(0.18, rgba(col, a * 0.5));
+        g.addColorStop(0.5, rgba(col, a));
+        g.addColorStop(0.82, rgba(col, a * 0.5));
+        g.addColorStop(1, rgba(col, 0));
+        return g;
+      };
+
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter'; // additive — reads as emitted light
+      ctx.lineCap = 'round';
+      // wide soft aura (shadowBlur softens it across, the gradient fades the ends)
+      ctx.strokeStyle = vgrad(HEAD, 0.1 + 0.16 * k);
+      ctx.lineWidth = 7 + heat * 9;
+      ctx.shadowColor = rgba(HEAD, 0.4); ctx.shadowBlur = 14 + heat * 22;
+      ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // mid glow
+      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.12 + 0.45 * heat), 0.42 + 0.3 * k);
+      ctx.lineWidth = 2.4 + heat * 2;
+      ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
+      // hot core (whitens with heat, fades at the ends)
+      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.32 + 0.5 * heat), 0.6 + 0.3 * k);
+      ctx.lineWidth = 1 + heat * 1.1;
+      ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
+
+      // strike — a soft central flash, plus a faint horizontal "space-bend"
+      // along EACH of the three lane lines at the playhead (subtle on all three).
+      if (charge > 0.01) {
+        const bloom = mix(HEAD, WHITE, 0.5); // warm pink-white, never pure white
+        const fr = 14 + 18 * heat;
+        const fg = ctx.createRadialGradient(phX, midY, 0, phX, midY, fr);
+        fg.addColorStop(0, rgba(bloom, 0.32 * k));
+        fg.addColorStop(0.5, rgba(HEAD, 0.16 * k));
+        fg.addColorStop(1, rgba(HEAD, 0));
+        ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(phX, midY, fr, 0, Math.PI * 2); ctx.fill();
+        // faint elongated glow along each lane (squashed radial → soft, no edges)
+        const sw = (50 + 80 * heat) * k;
+        for (let i = 0; i < LANES.length; i++) {
+          ctx.save();
+          ctx.translate(phX, laneY(i, phX)); ctx.scale(1, 0.12);
+          const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, sw);
+          sg.addColorStop(0, rgba(bloom, 0.1 * k));
+          sg.addColorStop(1, rgba(HEAD, 0));
+          ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(0, 0, sw, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+
+      // task nodes (drawn far→near so closer nodes overlap)
+      const nodes = [];
       for (let i = 0; i < LANES.length; i++) {
-        const iv = LANES[i].interval, y = laneY(i);
+        const iv = LANES[i].interval;
         const first = Math.ceil(Math.max(1, tMin) / iv) * iv;
         for (let tt = first; tt <= tMax; tt += iv) {
           const x = screenX(tt);
           if (x < -GAP || x > W + GAP) continue;
-          drawNode(x, y, i, tt, t);
+          nodes.push({ x, y: laneY(i, x), i, tt });
         }
       }
-
-      // playhead — bright vertical line over the band, glowing dot at the top
-      const phHeadY = top - 8, phFootY = bot + 8;
-      const beat = phase === 'pause' ? 1 - easeOut(clamp((t - phaseT) / 220, 0, 1)) : 0;
-      ctx.strokeStyle = rgba(HEAD, 0.9);
-      ctx.lineWidth = 2;
-      ctx.shadowColor = rgba(HEAD, 0.7); ctx.shadowBlur = 12 + beat * 14;
-      ctx.beginPath(); ctx.moveTo(phX, phHeadY); ctx.lineTo(phX, phFootY); ctx.stroke();
-      ctx.beginPath(); ctx.arc(phX, phHeadY, 4 + beat * 3, 0, Math.PI * 2);
-      ctx.fillStyle = rgba(HEAD, 1); ctx.fill();
-      ctx.shadowBlur = 0;
+      nodes.sort((a, b) => near(a.x) - near(b.x));
+      for (const nd of nodes) drawNode(nd.x, nd.y, nd.i, nd.tt, t);
 
       edgeFades();
+
+      // glassy numeric tags at the bottom of each tick line — they emerge from a
+      // depth-of-field blur in the distance, shrink with perspective, and magnify
+      // as they cross the laser. Drawn after the fades so the focused one stays crisp.
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const fw = Math.min(110, W * 0.12);
+      for (let tt = Math.max(1, tMin); tt <= tMax; tt++) {
+        const x = screenX(tt);
+        if (x < 6 || x > W - 6) continue;
+        const n = near(x);
+        // peak at the laser, fall off fast so pending/passed tags sit back
+        const ta = lerp(0.12, 0.95, Math.pow(n, 1.5)) * clamp(Math.min(x, W - x) / fw, 0, 1);
+        if (ta < 0.04) continue;
+        const mag = 1 + 0.4 * clamp(1 - Math.abs(x - phX) / (GAP * 0.55), 0, 1); // gentle pop at the laser
+        const sc = lerp(0.5, 0.9, n) * mag;
+        const blur = (1 - n) * (DOF + 1.5);      // blur in the distance
+        const tw = 18 * sc, th = 12.6 * sc, cy = bandBotAt(x) + 11 * sc + th / 2;
+        // rotate to the arc's local slope so the tag sits on the curved rail
+        const ang = Math.atan2(bandBotAt(x + 9) - bandBotAt(x - 9), 18) * 1.25;
+        ctx.save();
+        if (blur > 0.4) ctx.filter = `blur(${blur.toFixed(1)}px)`;
+        ctx.translate(x, cy);
+        ctx.rotate(ang);
+        rrect(-tw / 2, -th / 2, tw, th, 2.3 * sc);
+        ctx.fillStyle = `rgba(82,59,110,${0.62 * ta})`; ctx.fill(); // flat dark purple, no border/gradient
+        ctx.fillStyle = `rgba(246,248,252,${0.92 * ta})`;
+        ctx.font = `600 ${Math.round(8.6 * sc)}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+        ctx.fillText(tagNum(tt), 0, 0.5);
+        ctx.restore();
+      }
     }
 
     function step() { render(true); if (running) raf = requestAnimationFrame(step); }
