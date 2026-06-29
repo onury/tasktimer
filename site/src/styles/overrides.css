@@ -1,0 +1,20 @@
+/* ===========================================================================
+ * overrides.css — PER-PROJECT theme tokens (loaded after the shared theme).
+ * ---------------------------------------------------------------------------
+ * The shared look comes from @onury/docs-kit. Override any token here to give
+ * THIS docs site its own flavor without affecting the other projects.
+ *
+ * Most common: the accent color. Set `--oy-accent` (the shared theme derives
+ * `--sl-color-accent` + `--sl-color-accent-high` from it). Uncomment & edit:
+ * =========================================================================== */
+
+:root {
+  --oy-accent: #6b21a8; /* TaskTimer brand purple (from the logo) */
+}
+
+/* Need finer control? Override any Starlight token here too, e.g.:
+:root {
+  --sl-color-accent-low: #11204a;
+  --sl-color-text-accent: var(--sl-color-accent-high);
+}
+*/

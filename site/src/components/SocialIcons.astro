@@ -1,0 +1,21 @@
+---
+/* ---------------------------------------------------------------------------
+ * Override: SocialIcons  —  the icon links in the top-right of the header.
+ * ---------------------------------------------------------------------------
+ * The icons themselves are configured declaratively via `defineDocs({ social:
+ * [...] })`. Override this component only when you need *custom* markup next to
+ * them (e.g. a "Sponsor" button, a version dropdown).
+ *
+ * To ENABLE: pass it via `components` in `defineDocs({ components: {
+ * SocialIcons: './src/components/SocialIcons.astro' } })`.
+ *
+ * Docs: https://starlight.astro.build/reference/overrides/#socialicons
+ * ------------------------------------------------------------------------- */
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+---
+
+<Default><slot /></Default>
+
+{/* --- e.g. an extra button after the social icons ---
+<a class="sponsor" href="https://github.com/sponsors/onury">♥ Sponsor</a>
+*/}
