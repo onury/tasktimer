@@ -31,6 +31,11 @@
  * buttons under the canvas (the dark stage then bleeds over them). */
 .hero .stack { position: relative; z-index: 3; }
 
+/* The hero `image` wrapper (the logo wordmark) is a sibling of the canvas with
+ * auto z-index, so the positioned canvas (z-index:1) paints over it — same fix
+ * as .stack above: lift it onto the content layer so the wordmark shows. */
+.hero .hero-html { position: relative; z-index: 3; }
+
 /* The logo wordmark (hero `image`, theme-swapped by Starlight) replaces the
  * title, so hide the <h1> text visually but keep it for SEO / screen readers. */
 .hero .copy h1 {
