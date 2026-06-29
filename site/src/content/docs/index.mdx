@@ -3,7 +3,7 @@ title: TaskTimer
 description: An accurate timer utility for running periodic tasks on the given interval ticks or dates.
 template: splash
 hero:
-  tagline: An accurate timer utility for running periodic tasks on the given interval ticks or dates.
+  tagline: An accurate timer utility for running periodic tasks on the given interval ticks or dates — one timer, many tasks, with drift correction.
   actions:
     - text: Get Started
       link: /tasktimer/getting-started/
@@ -15,35 +15,40 @@ hero:
       variant: minimal
 ---
 
+```js
+const timer = new TaskTimer(1000);          // 1s base interval
+timer.add(task => console.log(task.currentRuns)).start();
+```
+
 {/* Feature cards use the shared `.feature-grid` classes from @onury/docs-kit. */}
 <div class="feature-grid">
   <div class="feature">
     <div class="feature-head">
-      <span class="feature-icon ti fi-blue">◆</span>
-      <h3>Fast</h3>
+      <i class="ti ti-target-arrow feature-icon fi-purple"></i>
+      <h3>Accurate</h3>
     </div>
-    <p>Describe a key capability of TaskTimer here.</p>
+    <p>Drift between ticks is auto-corrected against task/CPU load and clock drift — using high-resolution time in Node.</p>
   </div>
   <div class="feature">
     <div class="feature-head">
-      <span class="feature-icon ti fi-green">◆</span>
-      <h3>Typed</h3>
+      <i class="ti ti-stack-2 feature-icon fi-blue"></i>
+      <h3>Many Tasks, One Timer</h3>
     </div>
-    <p>Another highlight — replace this placeholder copy.</p>
+    <p>Run and schedule any number of tasks — each on its own interval, delay, run limit, or date window — from a single instance.</p>
   </div>
   <div class="feature">
     <div class="feature-head">
-      <span class="feature-icon ti fi-purple">◆</span>
-      <h3>Tested</h3>
+      <i class="ti ti-refresh feature-icon fi-green"></i>
+      <h3>Sync or Async</h3>
     </div>
-    <p>A third selling point goes here.</p>
+    <p>Return a <code>Promise</code> or call <code>done()</code>. Limit runs, listen for events, pause and resume at any time.</p>
   </div>
   <div class="feature">
     <div class="feature-head">
-      <span class="feature-icon ti fi-orange">◆</span>
-      <h3>Zero-config</h3>
+      <i class="ti ti-package feature-icon fi-orange"></i>
+      <h3>ESM, Zero-Dependency</h3>
     </div>
-    <p>And a fourth. Edit these in <code>src/content/docs/index.mdx</code>.</p>
+    <p>An ESM-only module with no runtime dependencies, written in TypeScript with complete type definitions.</p>
   </div>
 </div>
 

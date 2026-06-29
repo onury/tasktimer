@@ -59,19 +59,34 @@ export default defineConfig({
         {
           "label": "Start Here",
           "items": [
-            {
-              "label": "Getting Started",
-              "slug": "getting-started"
-            }
+            { "label": "Getting Started", "slug": "getting-started" },
+            { "label": "What's New", "slug": "whats-new" }
+          ]
+        },
+        {
+          "label": "Concepts",
+          "items": [
+            { "label": "Ticks & Intervals", "slug": "concepts/ticks-and-intervals" },
+            { "label": "Precision", "slug": "concepts/precision" },
+            { "label": "Tasks", "slug": "concepts/tasks" },
+            { "label": "Timer Lifecycle", "slug": "concepts/timer-lifecycle" },
+            { "label": "Events", "slug": "concepts/events" }
+          ]
+        },
+        {
+          "label": "Guides",
+          "items": [
+            { "label": "Scheduling Tasks", "slug": "guides/scheduling" },
+            { "label": "Async Tasks", "slug": "guides/async-tasks" },
+            { "label": "Scheduling by Date", "slug": "guides/date-scheduling" },
+            { "label": "Pause, Resume & Cleanup", "slug": "guides/control" }
           ]
         },
         {
           "label": "Help",
           "items": [
-            {
-              "label": "Changelog",
-              "slug": "changelog"
-            }
+            { "label": "FAQ", "slug": "faq" },
+            { "label": "Changelog", "slug": "changelog" }
           ]
         },
         typeDocSidebarGroup
