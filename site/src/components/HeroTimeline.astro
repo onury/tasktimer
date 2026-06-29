@@ -1,0 +1,259 @@
+---
+/**
+ * Timeline hero background for the TaskTimer home page.
+ *
+ * Injects a full-bleed <canvas> that spans from the top of the page (behind the
+ * header) down to the bottom of the hero — then fades out, so it never reaches
+ * the code snippet / feature boxes below. It animates exactly what TaskTimer
+ * does: a playhead steps forward tick by tick — move, stop, fire — and on each
+ * stop it completes whatever tasks are due on that tick. Three lanes run on
+ * different tick intervals, so some ticks complete one task, some complete
+ * several; the schedule scrolls leftward as time marches on. The dark stage and
+ * the on-brand purple / cyan / crimson light blooms (the logo palette) are
+ * painted on the same canvas.
+ *
+ * Cheap by design: the dark stage + blooms are cached to an offscreen canvas and
+ * blitted each frame; only a handful of nodes are drawn; the loop pauses when the
+ * hero scrolls off-screen or the tab is hidden; and `prefers-reduced-motion`
+ * renders one static frame.
+ */
+---
+
+<script>
+  (() => {
+    const hero = document.querySelector('.hero');
+    if (!hero || !('getContext' in document.createElement('canvas'))) return;
+
+    // ── tunables ────────────────────────────────────────────────────────────
+    const LANES = [
+      { interval: 2, color: [56, 211, 240] },  // cyan
+      { interval: 3, color: [167, 139, 250] },  // violet
+      { interval: 5, color: [244, 114, 182] }   // pink/crimson
+    ];
+    const DONE = [52, 224, 160];   // completed — mint/success
+    const HEAD = [120, 230, 250];  // playhead — bright cyan
+    const MOVE_MS = 300;           // step forward (move) duration
+    const PAUSE_MS = 440;          // stop-on-tick (fire) duration
+    const FLASH = 520;             // completion flash duration, ms
+    const FADE = 130;              // bottom fade-out height, px
+    const HEAD_X = 0.32;           // playhead position (fraction of width)
+    const BAND_Y = 0.56;           // timeline band center (fraction of height)
+
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const easeIO = t => t * t * (3 - 2 * t);
+    const easeOut = t => 1 - (1 - t) * (1 - t);
+    const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+    const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+    const now = () => performance.now();
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'timeline-hero';
+    canvas.setAttribute('aria-hidden', 'true');
+    hero.prepend(canvas);
+    const ctx = canvas.getContext('2d');
+    const bg = document.createElement('canvas');
+    const bgx = bg.getContext('2d');
+
+    let W = 0, H = 0, dpr = 1, raf = 0, running = false, visible = false;
+    let GAP = 120, R = 10, bandTop = 0, laneGap = 56, phX = 0;
+
+    // playhead state machine: move → pause(fire) → move …
+    let tick = 1, phase = 'move', phaseT = now(), head = 0; // head = float tick position
+    let events = []; // completed nodes: { lane, t, t0 }
+
+    function layout() {
+      const r = hero.getBoundingClientRect();
+      const top = Math.max(0, r.top + window.scrollY);
+      canvas.style.top = -top + 'px';
+      canvas.style.height = top + hero.offsetHeight + 'px';
+    }
+
+    function buildBg() {
+      bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
+      bgx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      const base = bgx.createLinearGradient(0, 0, 0, H);
+      if (light) { base.addColorStop(0, '#f3f4f6'); base.addColorStop(0.55, '#edeef1'); base.addColorStop(1, '#e7e8ec'); }
+      else { base.addColorStop(0, '#120e1c'); base.addColorStop(0.55, '#0b0910'); base.addColorStop(1, '#08070c'); }
+      bgx.fillStyle = base; bgx.fillRect(0, 0, W, H);
+      const reach = Math.max(W, H) * 0.6;
+      const pa = light ? 0.13 : 0.22, ca = light ? 0.1 : 0.15, ra = light ? 0.07 : 0.11;
+      bloom(W * 0.2, H * 0.32, reach, [124, 58, 237], pa);  // purple, upper-left
+      bloom(W * 0.84, H * 0.66, reach, [34, 211, 238], ca); // cyan, lower-right
+      bloom(W * 0.6, H * 0.1, reach * 0.8, [236, 72, 153], ra); // pink, top
+    }
+    function bloom(x, y, r, c, a) {
+      const g = bgx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(c, a)); g.addColorStop(1, rgba(c, 0));
+      bgx.fillStyle = g; bgx.fillRect(0, 0, W, H);
+    }
+
+    function resize() {
+      dpr = Math.min(2, window.devicePixelRatio || 1);
+      layout();
+      W = canvas.clientWidth || hero.clientWidth;
+      H = canvas.clientHeight || hero.clientHeight;
+      if (!W || !H) return;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      GAP = clamp(W / 9, 96, 150);
+      R = clamp(GAP * 0.085, 8, 13);
+      laneGap = clamp(H * 0.12, 44, 64);
+      bandTop = H * BAND_Y - laneGap; // 3 lanes centered on H*BAND_Y
+      phX = W * HEAD_X;
+      buildBg();
+    }
+
+    function laneY(i) { return bandTop + i * laneGap; }
+    function screenX(t) { return phX + (t - head) * GAP; }
+
+    function update(t) {
+      const e = t - phaseT;
+      if (phase === 'move') {
+        const k = easeIO(clamp(e / MOVE_MS, 0, 1));
+        head = lerp(tick - 1, tick, k);
+        if (e >= MOVE_MS) {
+          head = tick; phase = 'pause'; phaseT = t;
+          LANES.forEach((ln, i) => { if (tick % ln.interval === 0) events.push({ lane: i, t: tick, t0: t }); });
+        }
+      } else if (e >= PAUSE_MS) {
+        tick++; phase = 'move'; phaseT = t;
+      }
+      // drop events that have scrolled off the left edge
+      const cutoff = head - phX / GAP - 1;
+      events = events.filter(ev => ev.t >= cutoff);
+    }
+
+    function edgeFades() {
+      ctx.globalCompositeOperation = 'destination-out';
+      const fw = Math.min(110, W * 0.12);
+      let g = ctx.createLinearGradient(0, 0, fw, 0);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, fw, H);
+      g = ctx.createLinearGradient(W - fw, 0, W, 0);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+      ctx.fillStyle = g; ctx.fillRect(W - fw, 0, fw, H);
+      const f = Math.min(FADE, H * 0.4);
+      g = ctx.createLinearGradient(0, H - f, 0, H);
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,1)');
+      ctx.fillStyle = g; ctx.fillRect(0, H - f, W, f);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function eventAt(lane, t) {
+      for (const ev of events) if (ev.lane === lane && ev.t === t) return ev;
+      return null;
+    }
+
+    function drawNode(x, y, lane, t, time) {
+      const fired = t < tick || (t === tick && phase === 'pause');
+      const col = LANES[lane].color;
+      if (!fired) {
+        // pending — dim hollow node ahead of the playhead, fading in from afar
+        const af = clamp((W - x) / (W - phX), 0.35, 1);
+        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(col, 0.5 * af); ctx.lineWidth = 2; ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, R * 0.34, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(col, 0.3 * af); ctx.fill();
+        return;
+      }
+      // completed — fades as it recedes left into the "past"
+      ctx.save();
+      ctx.globalAlpha = lerp(0.32, 1, clamp(x / phX, 0, 1));
+      const ev = eventAt(lane, t);
+      const fl = ev ? clamp((time - ev.t0) / FLASH, 0, 1) : 1;
+      const pop = ev ? 1 + 0.5 * (1 - easeOut(fl)) : 1; // brief scale-up on completion
+      const glow = ev ? (1 - easeOut(fl)) : 0;
+      const fillC = mix(col, DONE, ev ? easeOut(fl) : 1);
+      const rr = R * pop;
+      if (glow > 0) { ctx.shadowColor = rgba(DONE, glow); ctx.shadowBlur = R * 1.7 * glow; }
+      ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(fillC, 0.95); ctx.fill();
+      ctx.shadowBlur = 0;
+      // checkmark
+      const k = rr * 0.52, a = 0.55 + 0.45 * (ev ? easeOut(fl) : 1);
+      ctx.beginPath();
+      ctx.moveTo(x - k * 0.5, y);
+      ctx.lineTo(x - k * 0.1, y + k * 0.42);
+      ctx.lineTo(x + k * 0.55, y - k * 0.46);
+      ctx.strokeStyle = rgba([8, 10, 14], a); ctx.lineWidth = Math.max(1.6, R * 0.26);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.restore();
+    }
+
+    function render(animate) {
+      const t = now();
+      if (animate) update(t);
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(bg, 0, 0, W, H);
+
+      const tMin = Math.floor(head - phX / GAP) - 1;
+      const tMax = Math.ceil(head + (W - phX) / GAP) + 1;
+
+      // lane baselines + tick ruler
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < LANES.length; i++) {
+        ctx.strokeStyle = rgba(LANES[i].color, 0.12);
+        ctx.beginPath(); ctx.moveTo(0, laneY(i)); ctx.lineTo(W, laneY(i)); ctx.stroke();
+      }
+      const top = laneY(0) - laneGap * 0.7, bot = laneY(LANES.length - 1) + laneGap * 0.7;
+      for (let tt = Math.max(1, tMin); tt <= tMax; tt++) {
+        const x = screenX(tt);
+        if (x < -GAP || x > W + GAP) continue;
+        const passed = tt <= (phase === 'pause' ? tick : tick - 1);
+        ctx.strokeStyle = `rgba(150,160,190,${passed ? 0.05 : 0.09})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
+        // tick tip mark on the top ruler
+        ctx.fillStyle = `rgba(170,180,210,${passed ? 0.12 : 0.22})`;
+        ctx.fillRect(x - 1, top - 1, 2, 7);
+      }
+
+      // task nodes
+      for (let i = 0; i < LANES.length; i++) {
+        const iv = LANES[i].interval, y = laneY(i);
+        const first = Math.ceil(Math.max(1, tMin) / iv) * iv;
+        for (let tt = first; tt <= tMax; tt += iv) {
+          const x = screenX(tt);
+          if (x < -GAP || x > W + GAP) continue;
+          drawNode(x, y, i, tt, t);
+        }
+      }
+
+      // playhead — bright vertical line over the band, glowing dot at the top
+      const phHeadY = top - 8, phFootY = bot + 8;
+      const beat = phase === 'pause' ? 1 - easeOut(clamp((t - phaseT) / 220, 0, 1)) : 0;
+      ctx.strokeStyle = rgba(HEAD, 0.9);
+      ctx.lineWidth = 2;
+      ctx.shadowColor = rgba(HEAD, 0.7); ctx.shadowBlur = 12 + beat * 14;
+      ctx.beginPath(); ctx.moveTo(phX, phHeadY); ctx.lineTo(phX, phFootY); ctx.stroke();
+      ctx.beginPath(); ctx.arc(phX, phHeadY, 4 + beat * 3, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(HEAD, 1); ctx.fill();
+      ctx.shadowBlur = 0;
+
+      edgeFades();
+    }
+
+    function step() { render(true); if (running) raf = requestAnimationFrame(step); }
+    function start() { if (!running) { running = true; phaseT = now(); raf = requestAnimationFrame(step); } }
+    function stop() { running = false; cancelAnimationFrame(raf); }
+
+    let rt = 0;
+    const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { resize(); if (reduce) render(false); }, 150); };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('load', () => { resize(); if (reduce) render(false); });
+
+    resize();
+    new MutationObserver(() => { buildBg(); if (!running) render(false); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    if (reduce) { render(false); return; }
+
+    new IntersectionObserver((e) => {
+      visible = e[0].isIntersecting;
+      visible && !document.hidden ? start() : stop();
+    }, { threshold: 0 }).observe(hero);
+    document.addEventListener('visibilitychange', () => { document.hidden ? stop() : (visible && start()); });
+  })();
+</script>

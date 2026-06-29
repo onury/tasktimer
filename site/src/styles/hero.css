@@ -1,18 +1,48 @@
 /* ===========================================================================
  * hero.css — project-owned hero styling for the splash home page.
  * ---------------------------------------------------------------------------
- * This file is PER-PROJECT (the shared look — fonts, colors, header, code
- * blocks, feature cards — comes from @onury/docs-kit). Use it to style the home
- * hero or inject a decorative background via the hero `image.html` slot in
- * `src/content/docs/index.mdx`.
- *
- * The starter below only adds a readability drop-shadow on the hero copy so it
- * stays legible over any background you add. Delete or extend freely.
+ * The shared look (fonts, colors, header, code blocks, feature cards) comes from
+ * @onury/docs-kit. Here we lay out the timeline animation stage behind the hero.
  * =========================================================================== */
 
-.hero .copy h1 {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+/* ── Timeline hero stage ─────────────────────────────────────────────────────
+ * The ticking timeline, the dark backdrop, and the purple/cyan/pink blooms are
+ * all painted on a single <canvas> injected by HeroTimeline.astro. The canvas
+ * spans from the top of the page (behind the header) down to the bottom of the
+ * hero, then fades out — its top/height are set in JS; styling lives here. The
+ * stage is dark in dark theme and light gray in light theme. */
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
 }
+.hero canvas.timeline-hero {
+  position: absolute;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: 1; /* above the stage, below the title + copy */
+  display: block;
+  pointer-events: none;
+}
+/* Title + copy sit above the animation. */
+.hero .copy { position: relative; z-index: 3; }
+
+/* Keep the hero copy legible over the dark stage regardless of theme. */
+.hero .copy h1 { text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55); }
+.hero .tagline { color: #d9dbe0; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); }
+.hero .actions a.minimal { color: #e6e8ec; }
+
+/* ── Light mode only — the stage is light gray, so hero copy goes dark.
+ * (Dark mode is unchanged.) ─────────────────────────────────────────────── */
+:root[data-theme='light'] .hero .copy h1 { text-shadow: none; }
+:root[data-theme='light'] .hero .tagline { color: #1b1c20; text-shadow: none; }
+:root[data-theme='light'] .hero .actions a.minimal { color: #000; }
+:root[data-theme='light'] .hero .actions a.primary { color: #000; }
+:root[data-theme='light'] header.header { border-bottom: 1px solid rgba(0, 0, 0, 0.08); }
+
+/* Contain the full-bleed canvas to the viewport (no horizontal scrollbar). */
+html:not([data-has-sidebar]) :where(main, .content-panel) { overflow-x: clip; }
 
 .hero .actions a.primary {
   transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
