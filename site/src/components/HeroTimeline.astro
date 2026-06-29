@@ -25,13 +25,19 @@
     if (!hero || !('getContext' in document.createElement('canvas'))) return;
 
     // ── tunables ────────────────────────────────────────────────────────────
+    // each lane carries a dark-theme color and a darker light-theme variant
+    // (pale hues vanish on a light stage); `lcol(i)` / `dcol` / HEAD pick per theme.
     const LANES = [
-      { interval: 2, color: [56, 211, 240] },  // cyan
-      { interval: 3, color: [250, 204, 21] },   // yellow
-      { interval: 5, color: [251, 146, 60] }    // orange
+      { interval: 2, color: [56, 211, 240], colorL: [6, 174, 224] },   // cyan
+      { interval: 3, color: [250, 204, 21], colorL: [232, 156, 6] },   // yellow → vivid amber
+      { interval: 5, color: [251, 146, 60], colorL: [242, 104, 20] }   // orange
     ];
-    const DONE = [52, 224, 160];   // completed — mint/success
-    const HEAD = [244, 80, 122];   // playhead — pinky red (organic laser)
+    const DONE_D = [52, 224, 160], DONE_L = [8, 190, 116];   // completed — mint (dark / vivid green light)
+    const HEAD_D = [244, 80, 122], HEAD_L = [206, 26, 92];   // laser pink (dark / light)
+    const HOT_D = [255, 255, 255], HOT_L = [122, 8, 58];     // flare target: white (dark) / deep magenta (light)
+    let LIGHT = false;             // light theme? (set in buildBg, drives the variants below)
+    let HEAD = HEAD_D, DONE = DONE_D, HOT = HOT_D;
+    const lcol = i => (LIGHT ? LANES[i].colorL : LANES[i].color);
     const MOVE_MS = 300;           // step forward (move) duration
     const PAUSE_MS = 440;          // stop-on-tick (fire) duration
     const FLASH = 520;             // completion pop/glow duration, ms
@@ -80,13 +86,16 @@
     function buildBg() {
       bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
       bgx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const light = document.documentElement.getAttribute('data-theme') === 'light';
+      LIGHT = document.documentElement.getAttribute('data-theme') === 'light';
+      HEAD = LIGHT ? HEAD_L : HEAD_D;
+      DONE = LIGHT ? DONE_L : DONE_D;
+      HOT = LIGHT ? HOT_L : HOT_D;
       const base = bgx.createLinearGradient(0, 0, 0, H);
-      if (light) { base.addColorStop(0, '#f3f4f6'); base.addColorStop(0.55, '#edeef1'); base.addColorStop(1, '#e7e8ec'); }
+      if (LIGHT) { base.addColorStop(0, '#f5f6f8'); base.addColorStop(0.55, '#edeef2'); base.addColorStop(1, '#e6e8ed'); }
       else { base.addColorStop(0, '#120e1c'); base.addColorStop(0.55, '#0b0910'); base.addColorStop(1, '#08070c'); }
       bgx.fillStyle = base; bgx.fillRect(0, 0, W, H);
       const reach = Math.max(W, H) * 0.6;
-      const pa = light ? 0.13 : 0.22, ca = light ? 0.1 : 0.15, ra = light ? 0.07 : 0.11;
+      const pa = LIGHT ? 0.16 : 0.22, ca = LIGHT ? 0.13 : 0.15, ra = LIGHT ? 0.11 : 0.11;
       bloom(W * 0.2, H * 0.32, reach, [124, 58, 237], pa);  // purple, upper-left
       bloom(W * 0.84, H * 0.66, reach, [34, 211, 238], ca); // cyan, lower-right
       bloom(W * 0.6, H * 0.1, reach * 0.8, [236, 72, 153], ra); // pink, top
@@ -195,7 +204,7 @@
 
     function drawNode(x, y, lane, t, time) {
       const fired = t < tick || (t === tick && phase === 'pause');
-      const col = LANES[lane].color;
+      const col = lcol(lane);
       const n = near(x);
       const blur = (1 - n) * DOF;          // depth-of-field: far nodes blur
       const rB = R * scaleAt(x);            // perspective scale: near big, far small
@@ -234,7 +243,7 @@
       ctx.moveTo(x - k * 0.5, y);
       ctx.lineTo(x - k * 0.1, y + k * 0.42);
       ctx.lineTo(x + k * 0.55, y - k * 0.46);
-      ctx.strokeStyle = rgba([8, 10, 14], 1); ctx.lineWidth = Math.max(1.5, rr * 0.26);
+      ctx.strokeStyle = rgba(LIGHT ? [255, 255, 255] : [8, 10, 14], 1); ctx.lineWidth = Math.max(1.5, rr * 0.26);
       ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
       ctx.restore();
     }
@@ -256,19 +265,21 @@
           const xx = Math.min(x, W), y = laneY(i, xx);
           x === 0 ? ctx.moveTo(xx, y) : ctx.lineTo(xx, y);
         }
-        ctx.strokeStyle = rgba(LANES[i].color, 0.1); ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.strokeStyle = rgba(lcol(i), LIGHT ? 0.3 : 0.1); ctx.lineWidth = 1.5; ctx.stroke();
       }
 
       // tick gridlines spanning the (curved) band at each tick
+      const gridRGB = LIGHT ? '70,78,104' : '150,160,190';
+      const tipRGB = LIGHT ? '90,98,128' : '170,180,210';
       for (let tt = Math.max(1, tMin); tt <= tMax; tt++) {
         const x = screenX(tt);
         if (x < -GAP || x > W + GAP) continue;
         const passed = tt <= (phase === 'pause' ? tick : tick - 1);
         const top = bandTopAt(x), bot = bandBotAt(x);
-        ctx.strokeStyle = `rgba(150,160,190,${(passed ? 0.05 : 0.09) * (0.4 + 0.6 * near(x))})`;
+        ctx.strokeStyle = `rgba(${gridRGB},${(passed ? 0.05 : 0.09) * (LIGHT ? 1.7 : 1) * (0.4 + 0.6 * near(x))})`;
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bot); ctx.stroke();
-        ctx.fillStyle = `rgba(170,180,210,${(passed ? 0.12 : 0.22) * near(x)})`;
+        ctx.fillStyle = `rgba(${tipRGB},${(passed ? 0.12 : 0.22) * near(x)})`;
         ctx.fillRect(x - 1, top - 1, 2, 6);
       }
 
@@ -281,33 +292,36 @@
       const charge = hitT >= 0 ? clamp(1 - (t - hitT) / 640, 0, 1) : 0; // decays after a strike
       const k = easeOut(charge);
       const heat = k * clamp(hitN / 2, 0.6, 1.35); // brighter when several checks land together
-      const WHITE = [255, 255, 255];
+      const WHITE = HOT;             // flare target — white on dark, deep magenta on light
+      const ba = LIGHT ? 0.92 : 1;   // a touch softer on the light stage (less accented)
+      const sd = LIGHT ? 0.45 : 1;   // damp the strike flare on light
+      const e0 = LIGHT ? 0.34 : 0.18; // wider edge fade on light → more gradient ends
       // a vertical gradient that fades to transparent at the ends (organic spindle)
       const vgrad = (col, a) => {
         const g = ctx.createLinearGradient(phX, phTop, phX, phBot);
         g.addColorStop(0, rgba(col, 0));
-        g.addColorStop(0.18, rgba(col, a * 0.5));
+        g.addColorStop(e0, rgba(col, a * 0.5));
         g.addColorStop(0.5, rgba(col, a));
-        g.addColorStop(0.82, rgba(col, a * 0.5));
+        g.addColorStop(1 - e0, rgba(col, a * 0.5));
         g.addColorStop(1, rgba(col, 0));
         return g;
       };
 
       ctx.save();
-      ctx.globalCompositeOperation = 'lighter'; // additive — reads as emitted light
+      ctx.globalCompositeOperation = LIGHT ? 'source-over' : 'lighter'; // additive glow on dark; normal ink on light
       ctx.lineCap = 'round';
       // wide soft aura (shadowBlur softens it across, the gradient fades the ends)
-      ctx.strokeStyle = vgrad(HEAD, 0.1 + 0.16 * k);
+      ctx.strokeStyle = vgrad(HEAD, (0.1 + 0.16 * k) * ba);
       ctx.lineWidth = 7 + heat * 9;
-      ctx.shadowColor = rgba(HEAD, 0.4); ctx.shadowBlur = 14 + heat * 22;
+      ctx.shadowColor = rgba(HEAD, LIGHT ? 0.2 : 0.4); ctx.shadowBlur = 14 + heat * 22;
       ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
       ctx.shadowBlur = 0;
       // mid glow
-      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.12 + 0.45 * heat), 0.42 + 0.3 * k);
+      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.12 + 0.45 * heat), (0.42 + 0.3 * k) * ba);
       ctx.lineWidth = 2.4 + heat * 2;
       ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
-      // hot core (whitens with heat, fades at the ends)
-      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.32 + 0.5 * heat), 0.6 + 0.3 * k);
+      // hot core (warms with heat, fades at the ends)
+      ctx.strokeStyle = vgrad(mix(HEAD, WHITE, 0.32 + 0.5 * heat), Math.min(1, (0.6 + 0.3 * k) * ba));
       ctx.lineWidth = 1 + heat * 1.1;
       ctx.beginPath(); ctx.moveTo(phX, phTop); ctx.lineTo(phX, phBot); ctx.stroke();
 
@@ -317,8 +331,8 @@
         const bloom = mix(HEAD, WHITE, 0.5); // warm pink-white, never pure white
         const fr = 14 + 18 * heat;
         const fg = ctx.createRadialGradient(phX, midY, 0, phX, midY, fr);
-        fg.addColorStop(0, rgba(bloom, 0.32 * k));
-        fg.addColorStop(0.5, rgba(HEAD, 0.16 * k));
+        fg.addColorStop(0, rgba(bloom, 0.32 * k * sd));
+        fg.addColorStop(0.5, rgba(HEAD, 0.16 * k * sd));
         fg.addColorStop(1, rgba(HEAD, 0));
         ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(phX, midY, fr, 0, Math.PI * 2); ctx.fill();
         // faint elongated glow along each lane (squashed radial → soft, no edges)
@@ -327,7 +341,7 @@
           ctx.save();
           ctx.translate(phX, laneY(i, phX)); ctx.scale(1, 0.12);
           const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, sw);
-          sg.addColorStop(0, rgba(bloom, 0.1 * k));
+          sg.addColorStop(0, rgba(bloom, 0.1 * k * sd));
           sg.addColorStop(1, rgba(HEAD, 0));
           ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(0, 0, sw, 0, Math.PI * 2); ctx.fill();
           ctx.restore();
@@ -361,7 +375,7 @@
         if (x < 6 || x > W - 6) continue;
         const n = near(x);
         // peak at the laser, fall off fast so pending/passed tags sit back
-        const ta = lerp(0.12, 0.95, Math.pow(n, 1.5)) * clamp(Math.min(x, W - x) / fw, 0, 1);
+        const ta = lerp(0.12, 0.95, Math.pow(n, 1.5)) * clamp(Math.min(x, W - x) / fw, 0, 1) * 0.88;
         if (ta < 0.04) continue;
         const mag = 1 + 0.4 * clamp(1 - Math.abs(x - phX) / (GAP * 0.55), 0, 1); // gentle pop at the laser
         const sc = lerp(0.5, 0.9, n) * mag;
@@ -374,8 +388,13 @@
         ctx.translate(x, cy);
         ctx.rotate(ang);
         rrect(-tw / 2, -th / 2, tw, th, 2.3 * sc);
-        ctx.fillStyle = `rgba(82,59,110,${0.62 * ta})`; ctx.fill(); // flat dark purple, no border/gradient
-        ctx.fillStyle = `rgba(246,248,252,${0.92 * ta})`;
+        if (LIGHT) {
+          ctx.fillStyle = `rgba(250,250,253,${0.66 * ta})`; ctx.fill(); // white-ish pale chip
+          ctx.fillStyle = `rgba(74,42,116,${0.95 * ta})`;               // dark purple digits
+        } else {
+          ctx.fillStyle = `rgba(82,59,110,${0.62 * ta})`; ctx.fill();   // dark purple chip
+          ctx.fillStyle = `rgba(246,248,252,${0.92 * ta})`;             // white digits
+        }
         ctx.font = `600 ${Math.round(8.6 * sc)}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
         ctx.fillText(tagNum(tt), 0, 0.5);
         ctx.restore();

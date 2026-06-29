@@ -1,5 +1,10 @@
 <p align="center">
-    <a href="https://onury.io/tasktimer"><img width="300" height="300" src="https://raw.githubusercontent.com/onury/tasktimer/master/tasktimer-logo.png" alt="TaskTimer" /></a>
+    <a href="https://onury.io/tasktimer">
+        <picture>
+            <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/onury/tasktimer/master/tasktimer-white.svg" />
+            <img width="420" src="https://raw.githubusercontent.com/onury/tasktimer/master/tasktimer-black.svg" alt="TaskTimer" />
+        </picture>
+    </a>
 </p>
 <p align="center">
     <a href="https://github.com/onury/tasktimer/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/onury/tasktimer/ci.yml?branch=master&style=flat" alt="Build Status" /></a>

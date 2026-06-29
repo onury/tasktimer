@@ -12,6 +12,24 @@
   --oy-accent: #6b21a8; /* TaskTimer brand purple (from the logo) */
 }
 
+/* Header wordmark is the logo image (theme-swapped via the Starlight `logo`
+   config). Halve the default 40px logo height — the wide wordmark is too big. */
+.site-title img { height: 24px; }
+
+/* Dark mode — lighten ONLY the inline content links for readability on the dark
+   bg (a token override would also recolor buttons/sidebar, so target the links). */
+:root[data-theme='dark'] .sl-markdown-content a {
+  color: #b18cf0;
+}
+
+/* Selected sidebar item: white label on the accent-filled pill (the default
+   near-black text is unreadable on the purple). */
+.sidebar-content a[aria-current='page'],
+nav.sidebar a[aria-current='page'],
+a.large[aria-current='page'] {
+  color: #fff;
+}
+
 /* Need finer control? Override any Starlight token here too, e.g.:
 :root {
   --sl-color-accent-low: #11204a;

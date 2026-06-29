@@ -37,6 +37,13 @@ export default defineConfig({
     starlight({
       title: "TaskTimer",
       description: "An accurate timer utility for running periodic tasks on the given interval ticks or dates.",
+      // Header wordmark — colored icon + white text on dark, black text on light.
+      logo: {
+        light: './src/assets/tasktimer-black.svg',
+        dark: './src/assets/tasktimer-white.svg',
+        replacesTitle: true,
+        alt: 'TaskTimer'
+      },
       social: [{ icon: 'github', label: 'GitHub', href: "https://github.com/onury/tasktimer" }],
       // Shared <head> (Cloudflare Web Analytics beacon) — token lives in the kit.
       components: { Head: '@onury/docs-kit/components/Head.astro' },
