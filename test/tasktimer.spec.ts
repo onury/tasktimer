@@ -676,6 +676,29 @@ describe('TaskTimer scheduling & timing details', () => {
       timer.start();
     }));
 
+  it('reports a positive, growing elapsed for a running (incomplete) task', () =>
+    // regression for #12: while running, task.time.elapsed was `stopped - started`
+    // with stopped still 0, so it came out negative. It should count up live.
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(30);
+      timer.add({ id: 'r', tickInterval: 1, callback: noop }); // unlimited → never completes
+      timer.on(TaskTimer.Event.TICK, () => {
+        try {
+          if (timer.tickCount === 2) {
+            const t = timer.get('r').time;
+            expect(t.started).toBeGreaterThan(0);
+            expect(t.stopped).toBe(0); // not completed
+            expect(t.elapsed).toBeGreaterThan(0); // live, not negative
+            timer.stop();
+            resolve();
+          }
+        } catch (err) {
+          reject(err);
+        }
+      });
+      timer.start();
+    }));
+
   it('reports a growing elapsed time while running', () =>
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(30);

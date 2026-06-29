@@ -158,11 +158,13 @@ class Task {
   get time(): ITimeInfo {
     const started = this.#state.timeOnFirstRun || 0;
     const stopped = this.#state.timeOnLastRun || 0;
-    return Object.freeze({
-      started,
-      stopped,
-      elapsed: stopped - started
-    });
+    // Mirror the timer's `time`: 0 before the first run, the live elapsed while
+    // the task is still running, and frozen at (stopped - started) once it has
+    // completed. (Previously `stopped - started` with stopped still 0, so a
+    // running task reported a negative elapsed.)
+    let elapsed = 0;
+    if (started) elapsed = (stopped || Date.now()) - started;
+    return Object.freeze({ started, stopped, elapsed });
   }
 
   /**
