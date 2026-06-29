@@ -1,6 +1,29 @@
-# `TaskTimer` Changelog
+# TaskTimer - Changelog
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
+
+## 4.0.0 (2026-06-29)
+
+This is a modernization release. The public API (the `TaskTimer` / `Task` classes, the `TaskTimer.State` and `TaskTimer.Event` namespaces, options and events) is unchanged — but the module format and toolchain are new.
+
+### Changed
+- **Breaking**: TaskTimer is now **ESM-only** (`"type": "module"`). It no longer ships a CommonJS entry; use `import { TaskTimer } from 'tasktimer'`. See the [ESM notice](https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7).
+- **Breaking**: minimum supported Node.js is now **22** (the LTS floor at release time).
+- **Zero runtime dependencies**: the `eventemitter3` dependency was removed in favor of a small built-in `EventEmitter` that preserves the same `on`/`once`/`off`/`emit` surface.
+- Types now compile against **TypeScript 6** with `NodeNext` resolution and ship with declaration maps.
+
+### Removed
+- **Breaking**: the bundled UMD `<script>` build (`tasktimer.min.js`) is gone. Bundle TaskTimer with your app (Vite, esbuild, Rollup, webpack …) for browser use.
+
+### Fixed
+- The browser fallback for `setImmediate` invoked the callback eagerly instead of scheduling it; it now defers correctly via `setTimeout(…, 0)`.
+
+### Docs
+- New documentation site at [onury.io/tasktimer](https://onury.io/tasktimer); rewritten README and exampled TSDoc across the public API.
+
+### Tooling
+- Build is now a plain `tsc` emit to `lib/` (no webpack/uglify).
+- Adopted **Biome** (lint + format), **Vitest** (100% coverage on all four metrics), and **Stryker** mutation testing; CI moved to **GitHub Actions** (Node 22, 24).
 
 ## 3.0.0 (2019-08-02)
 

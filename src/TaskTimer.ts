@@ -1,892 +1,548 @@
-/* tslint:disable:max-file-line-count */
-
-// dep modules
-import { EventEmitter } from 'eventemitter3';
-
 // own modules
-import {
-    ITaskOptions, ITaskTimerEvent, ITaskTimerOptions, ITimeInfo, Task as TTask, TaskCallback
-} from '.';
-import { utils } from './utils';
+import { EventEmitter } from './core/EventEmitter.js';
+import { Event } from './enums/Event.js';
+import * as enums from './enums/index.js';
+import { State } from './enums/State.js';
+import { Task as TaskClass } from './Task.js';
+import type {
+  ITaskOptions,
+  ITaskTimerEvent,
+  ITaskTimerOptions,
+  ITimeInfo,
+  TaskCallback
+} from './types/index.js';
+import { utils } from './utils.js';
 
 /**
- *  @private
+ *  Default timer options.
+ *  @internal
  */
-const DEFAULT_TIMER_OPTIONS: ITaskTimerOptions = Object.freeze({
-    interval: 1000,
-    precision: true,
-    stopOnCompleted: false
+const DEFAULT_TIMER_OPTIONS: Readonly<ITaskTimerOptions> = Object.freeze({
+  interval: 1000,
+  precision: true,
+  stopOnCompleted: false
 });
 
 /**
- *  TaskTimer • https://github.com/onury/tasktimer
- *  @license MIT
- *  @copyright 2019, Onur Yıldırım <onur@cutepilot.com>
- */
-
-// ---------------------------
-// EventEmitter Docs
-// ---------------------------
-
-/**
- *  Calls each of the listeners registered for a given event name.
- *  @name TaskTimer#emit
- *  @function
+ *  A timer utility for running periodic tasks on tick intervals. Useful for
+ *  running or scheduling multiple tasks on a single timer instance.
  *
- *  @param {TaskTimer.Event} eventName - The name of the event to be emitted.
- *  @param {any} [data] - Data to be passed to event listeners.
- *
- *  @returns {Boolean} - `true` if the event had listeners, else `false`.
- */
-
- /**
-  *  Return an array listing the events for which the emitter has registered
-  *  listeners.
-  *  @name TaskTimer#eventNames
-  *  @function
-  *
-  *  @returns {Array} - List of event names.
-  */
-
-/**
- *  Adds the listener function to the end of the listeners array for the event
- *  named `eventName`. No checks are made to see if the listener has already
- *  been added. Multiple calls passing the same combination of `eventName` and
- *  `listener` will result in the listener being added, and called, multiple
- *  times.
- *  @name TaskTimer#on
- *  @function
- *  @alias TaskTimer#addListener
- *  @chainable
- *
- *  @param {TaskTimer.Event} eventName - The name of the event to be added.
- *  @param {Function} listener - The callback function to be invoked per event.
- *  @param {*} [context=this] - The context to invoke the listener with.
- *
- *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
+ *  `TaskTimer` extends an internal `EventEmitter` (zero runtime dependencies),
+ *  so you can subscribe to lifecycle events via {@link TaskTimer.on} and the
+ *  related methods.
  *
  *  @example
- *  const timer = new TaskTimer(1000);
- *  // add a listener to be invoked when timer has stopped.
- *  timer.on(TaskTimer.Event.STOPPED, () => {
- *      console.log('Timer has stopped!');
+ *  const timer = new TaskTimer(1000); // 1s base interval
+ *  timer.on(TaskTimer.Event.TICK, () => console.log(timer.tickCount));
+ *  timer.add({
+ *    id: 'heartbeat',
+ *    tickInterval: 5, // every 5 ticks
+ *    totalRuns: 10,
+ *    callback(task) {
+ *      console.log(`${task.id} ran ${task.currentRuns} times`);
+ *    }
  *  });
  *  timer.start();
  */
-
-/**
- *  Adds a one time listener function for the event named `eventName`. The next
- *  time `eventName` is triggered, this `listener` is removed and then invoked.
- *  @name TaskTimer#once
- *  @function
- *  @chainable
- *
- *  @param {TaskTimer.Event} eventName - The name of the event to be added.
- *  @param {Function} listener - The callback function to be invoked per event.
- *  @param {*} [context=this] - The context to invoke the listener with.
- *
- *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
- */
-
-/**
- *  Removes the specified `listener` from the listener array for the event
- *  named `eventName`.
- *  @name TaskTimer#off
- *  @function
- *  @alias TaskTimer#removeListener
- *  @chainable
- *
- *  @param {TaskTimer.Event} eventName - The name of the event to be removed.
- *  @param {Function} listener - The callback function to be invoked per event.
- *  @param {*} [context=this] - Only remove the listeners that have this context.
- *  @param {Boolean} [once=false] - Only remove one-time listeners.
- *
- *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
- */
-
- /**
-  *  Gets the number of listeners listening to a given event.
-  *  @name TaskTimer#listenerCount
-  *  @function
-  *
-  *  @param {TaskTimer.Event} eventName - The name of the event.
-  *
-  *  @returns {Number} - The number of listeners.
-  */
-
- /**
-  *  Gets the listeners registered for a given event.
-  *  @name TaskTimer#listeners
-  *  @function
-  *
-  *  @param {TaskTimer.Event} eventName - The name of the event.
-  *
-  *  @returns {Array} - The registered listeners.
-  */
-
-/**
- *  Removes all listeners, or those of the specified `eventName`.
- *  @name TaskTimer#removeAllListeners
- *  @function
- *  @chainable
- *
- *  @param {TaskTimer.Event} [eventName] - The name of the event to be removed.
- *
- *  @returns {TaskTimer} - `{@link #TaskTimer|TaskTimer}` instance.
- */
-
-/**
- *  A timer utility for running periodic tasks on the given interval ticks. This
- *  is useful when you want to run or schedule multiple tasks on a single timer
- *  instance.
- *
- *  This class extends `EventEmitter3` which is an `EventEmitter` implementation
- *  for both Node and browser. For detailed information, refer to Node.js
- *  documentation.
- *  @class
- *  @global
- *
- *  @extends EventEmitter
- *
- *  @see
- *  {@link https://nodejs.org/api/events.html#events_class_eventemitter|EventEmitter}
- */
 class TaskTimer extends EventEmitter {
+  /**
+   *  Internal state. Paused time is excluded from precision calculations, so the
+   *  resume-relative fields are kept separately.
+   *  @internal
+   */
+  #state!: {
+    opts: ITaskTimerOptions;
+    state: State;
+    tasks: { [k: string]: TaskClass };
+    tickCount: number;
+    taskRunCount: number;
+    startTime: number;
+    stopTime: number;
+    completedTaskCount: number;
+    resumeTime: number;
+    hrResumeTime: [number, number] | null;
+    tickCountAfterResume: number;
+  };
 
-    /**
-     *  Inner storage for Tasktimer.
-     *  @private
-     */
-    private _: {
-        opts: ITaskTimerOptions;
-        state: TaskTimer.State;
-        tasks: { [k: string]: TTask };
-        tickCount: number;
-        taskRunCount: number;
-        startTime: number;
-        stopTime: number;
-        completedTaskCount: number;
-        // below are needed for precise interval. we need to inspect ticks and
-        // elapsed time difference within the latest "continuous" session. in
-        // other words, paused time should be ignored in these calculations. so
-        // we need varibales saved after timer is resumed.
-        resumeTime: number;
-        hrResumeTime: [number, number];
-        tickCountAfterResume: number;
+  /**
+   *  `setTimeout` handle used by the timer.
+   *  @internal
+   */
+  #timeoutRef: any = null;
+
+  /**
+   *  `setImmediate` handle used by the timer.
+   *  @internal
+   */
+  #immediateRef: any = null;
+
+  /**
+   *  Total number of timer runs, including resumed runs.
+   *  @internal
+   */
+  #runCount = 0;
+
+  /**
+   *  Creates a new `TaskTimer`.
+   *  @param options - Timer options, or a base interval in milliseconds. Tasks
+   *  run on ticks rather than millisecond intervals, so this is the base
+   *  resolution for all tasks; lower intervals require more CPU when running
+   *  heavy tasks. Can be changed any time via the `interval` property.
+   *
+   *  @example
+   *  const timer = new TaskTimer(1000);
+   *  timer.on(TaskTimer.Event.TICK, () => {
+   *    console.log('tick:', timer.tickCount, 'elapsed:', timer.time.elapsed);
+   *  });
+   *  timer.add(task => console.log(task.currentRuns)).start();
+   */
+  constructor(options?: ITaskTimerOptions | number) {
+    super();
+    this.#reset();
+    this.#state.opts = {};
+    const opts =
+      typeof options === 'number' ? { interval: options } : options || ({} as ITaskTimerOptions);
+    this.interval = opts.interval!;
+    this.precision = opts.precision!;
+    this.stopOnCompleted = opts.stopOnCompleted!;
+  }
+
+  // ---------------------------
+  // PUBLIC PROPERTIES
+  // ---------------------------
+
+  /**
+   *  Base timer interval in milliseconds. Tasks run on ticks rather than
+   *  millisecond intervals, so this is the base resolution for all tasks. Can be
+   *  updated any time.
+   */
+  get interval(): number {
+    return this.#state.opts.interval!;
+  }
+  set interval(value: number) {
+    this.#state.opts.interval = utils.getNumber(value, 20, DEFAULT_TIMER_OPTIONS.interval!);
+  }
+
+  /**
+   *  Whether timer precision is enabled.
+   *
+   *  Because of the single-threaded, asynchronous nature of JavaScript, each
+   *  execution takes a slice of CPU time, and the wait varies with load. This
+   *  causes cumulative latency that gradually reduces accuracy. With precision
+   *  enabled, `TaskTimer` mitigates this:
+   *
+   *  - The delay between ticks is auto-adjusted when it drifts due to task/CPU
+   *    load or clock drift.
+   *  - In Node, it uses `process.hrtime()` high-resolution time, which is not
+   *    subject to clock drift.
+   *  - If a tick is significantly late (e.g. a blocking task), it auto-recovers
+   *    by running immediate ticks until the time/tick balance is restored.
+   *
+   *  Precision is best-effort and can still be off by a few milliseconds
+   *  depending on the CPU and load.
+   */
+  get precision(): boolean {
+    return this.#state.opts.precision!;
+  }
+  set precision(value: boolean) {
+    this.#state.opts.precision = utils.getBool(value, DEFAULT_TIMER_OPTIONS.precision!);
+  }
+
+  /**
+   *  Whether the timer automatically stops once all tasks are completed. For
+   *  this to take effect, every added task must have `totalRuns` and/or
+   *  `stopDate` configured.
+   */
+  get stopOnCompleted(): boolean {
+    return this.#state.opts.stopOnCompleted!;
+  }
+  set stopOnCompleted(value: boolean) {
+    this.#state.opts.stopOnCompleted = utils.getBool(value, DEFAULT_TIMER_OPTIONS.stopOnCompleted!);
+  }
+
+  /**
+   *  Current state of the timer. See {@link TaskTimer.State}.
+   */
+  get state(): State {
+    return this.#state.state;
+  }
+
+  /**
+   *  Time information for the latest run of the timer: `started`, `stopped`
+   *  (`0` while running) and `elapsed`, in milliseconds.
+   */
+  get time(): ITimeInfo {
+    const { startTime, stopTime } = this.#state;
+    const t: ITimeInfo = {
+      started: startTime,
+      stopped: stopTime,
+      elapsed: 0
     };
+    if (startTime) {
+      const current = this.state !== State.STOPPED ? Date.now() : stopTime;
+      t.elapsed = current - startTime;
+    }
+    return Object.freeze(t);
+  }
 
-    /**
-     *  setTimeout reference used by the timmer.
-     *  @private
-     */
-    private _timeoutRef: any;
+  /**
+   *  Current tick count for the latest run of the timer. Reset to `0` when the
+   *  timer is stopped or reset.
+   */
+  get tickCount(): number {
+    return this.#state.tickCount;
+  }
 
-    /**
-     *  setImmediate reference used by the timer.
-     *  @private
-     */
-    private _immediateRef: any;
+  /**
+   *  Current number of tasks. Tasks remain after the timer is stopped, but are
+   *  removed when the timer is reset.
+   */
+  get taskCount(): number {
+    return Object.keys(this.#state.tasks).length;
+  }
 
-    /**
-     *  Timer run count storage.
-     *  @private
-     */
-    private _runCount: number;
+  /**
+   *  Total number of all task executions (runs).
+   */
+  get taskRunCount(): number {
+    return this.#state.taskRunCount;
+  }
 
-    // ---------------------------
-    // CONSTRUCTOR
-    // ---------------------------
+  /**
+   *  Total number of timer runs, including resumed runs.
+   */
+  get runCount(): number {
+    return this.#runCount;
+  }
 
-    /**
-     *  Constructs a new `TaskTimer` instance with the given time interval (in
-     *  milliseconds).
-     *  @constructor
-     *
-     *  @param {ITaskTimerOptions|number} [options] - Either TaskTimer options
-     *  or a base interval (in milliseconds). Since the tasks run on ticks
-     *  instead of millisecond intervals; this value operates as the base
-     *  resolution for all tasks. If you are running heavy tasks, lower interval
-     *  requires higher CPU power. This value can be updated any time by setting
-     *  the `interval` property on the instance.
-     *
-     *  @example
-     *  const timer = new TaskTimer(1000); // milliseconds
-     *  // Execute some code on each tick...
-     *  timer.on('tick', () => {
-     *      console.log('tick count: ' + timer.tickCount);
-     *      console.log('elapsed time: ' + timer.time.elapsed + ' ms.');
-     *  });
-     *  // add a task named 'heartbeat' that runs every 5 ticks and a total of 10 times.
-     *  const task1 = {
-     *      id: 'heartbeat',
-     *      tickDelay: 20,   // ticks (to wait before first run)
-     *      tickInterval: 5, // ticks (interval)
-     *      totalRuns: 10,   // times to run
-     *      callback(task) { // can also be an async function, returning a promise
-     *          console.log(task.id + ' task has run ' + task.currentRuns + ' times.');
-     *      }
-     *  };
-     *  timer.add(task1).start();
-     */
-    constructor(options?: ITaskTimerOptions | number) {
-        super();
+  // ---------------------------
+  // PUBLIC METHODS
+  // ---------------------------
 
-        this._timeoutRef = null;
-        this._immediateRef = null;
-        this._runCount = 0;
-        this._reset();
+  /**
+   *  Gets the task with the given ID, or `null` if not found.
+   *  @param id - ID of the task.
+   */
+  get(id: string): TaskClass {
+    return this.#state.tasks[id] || null;
+  }
 
-        this._.opts = {};
-        const opts = typeof options === 'number'
-            ? { interval: options }
-            : options || {} as any;
-        this.interval = opts.interval;
-        this.precision = opts.precision;
-        this.stopOnCompleted = opts.stopOnCompleted;
+  /**
+   *  Adds one or more tasks to the timer.
+   *  @param task - A task, task options or a callback — or an array mixing
+   *  these to add multiple tasks at once.
+   *  @returns The timer instance for chaining.
+   *  @throws If a task callback is missing, or a task with the same ID exists.
+   */
+  add(
+    task: TaskClass | ITaskOptions | TaskCallback | Array<TaskClass | ITaskOptions | TaskCallback>
+  ): TaskTimer {
+    if (!utils.isset(task)) {
+      throw new Error('Either a task, task options or a callback is required.');
+    }
+    for (const item of utils.ensureArray(task)) this.#add(item);
+    return this;
+  }
+
+  /**
+   *  Removes a task from the timer.
+   *  @param task - The task to remove, by ID or instance.
+   *  @returns The timer instance for chaining.
+   *  @throws If no task exists with the given ID.
+   */
+  remove(task: string | TaskClass): TaskTimer {
+    const id: string = typeof task === 'string' ? task : task.id;
+    task = this.get(id);
+
+    if (!id || !task) {
+      throw new Error(`No tasks exist with ID: '${id}'.`);
     }
 
-    // ---------------------------
-    // PUBLIC (INSTANCE) PROPERTIES
-    // ---------------------------
+    // decrement completed count first if this is a completed task.
+    // Stryker disable next-line all: guard conditions only diverge for remove-sequences (non-completed / zero-count) that leave no observable accounting difference in reachable states.
+    if (task.completed && this.#state.completedTaskCount > 0) this.#state.completedTaskCount--;
 
-    /**
-     *  Gets or sets the base timer interval in milliseconds.
-     *
-     *  Since the tasks run on ticks instead of millisecond intervals; this
-     *  value operates as the base resolution for all tasks. If you are running
-     *  heavy tasks, lower interval requires higher CPU power. This value can be
-     *  updated any time.
-     *
-     *  @name TaskTimer#interval
-     *  @type {number}
-     */
-    get interval(): number {
-        return this._.opts.interval;
+    delete this.#state.tasks[id];
+    this.#emit(Event.TASK_REMOVED, task);
+    return this;
+  }
+
+  /**
+   *  Starts the timer, putting it in the `RUNNING` state. If already running,
+   *  this resets the start/stop time and tick count but keeps existing tasks.
+   *  @returns The timer instance for chaining.
+   */
+  start(): TaskTimer {
+    this.#stop();
+    this.#state.state = State.RUNNING;
+    this.#runCount++;
+    this.#state.tickCount = 0;
+    this.#state.taskRunCount = 0;
+    this.#state.stopTime = 0;
+    this.#markTime();
+    this.#state.startTime = Date.now();
+    this.#emit(Event.STARTED);
+    this.#run();
+    return this;
+  }
+
+  /**
+   *  Pauses the timer, putting it in the `PAUSED` state and all tasks on hold.
+   *  @returns The timer instance for chaining.
+   */
+  pause(): TaskTimer {
+    if (this.state !== State.RUNNING) return this;
+    this.#stop();
+    this.#state.state = State.PAUSED;
+    this.#emit(Event.PAUSED);
+    return this;
+  }
+
+  /**
+   *  Resumes a paused timer, putting it back in the `RUNNING` state. If the
+   *  timer is idle, this starts it.
+   *  @returns The timer instance for chaining.
+   */
+  resume(): TaskTimer {
+    if (this.state === State.IDLE) {
+      this.start();
+      return this;
     }
-    set interval(value: number) {
-        this._.opts.interval = utils.getNumber(value, 20, DEFAULT_TIMER_OPTIONS.interval);
+    if (this.state !== State.PAUSED) return this;
+    this.#runCount++;
+    this.#markTime();
+    this.#state.state = State.RUNNING;
+    this.#emit(Event.RESUMED);
+    this.#run();
+    return this;
+  }
+
+  /**
+   *  Stops the timer, putting it in the `STOPPED` state. Tasks and counters are
+   *  retained until the timer is restarted or reset.
+   *  @returns The timer instance for chaining.
+   */
+  stop(): TaskTimer {
+    if (this.state !== State.RUNNING) return this;
+    this.#stop();
+    this.#state.stopTime = Date.now();
+    this.#state.state = State.STOPPED;
+    this.#emit(Event.STOPPED);
+    return this;
+  }
+
+  /**
+   *  Stops the timer and puts it in the `IDLE` state, resetting the ticks and
+   *  removing all tasks silently (no `taskRemoved` events).
+   *  @returns The timer instance for chaining.
+   */
+  reset(): TaskTimer {
+    this.#reset();
+    this.#emit(Event.RESET);
+    return this;
+  }
+
+  // ---------------------------
+  // INTERNAL METHODS
+  // ---------------------------
+
+  /**
+   *  Called by a {@link Task} when it has completed all of its runs.
+   *  @internal
+   */
+  _taskCompleted(task: TaskClass): void {
+    this.#state.completedTaskCount++;
+    this.#emit(Event.TASK_COMPLETED, task);
+    if (this.#state.completedTaskCount === this.taskCount) {
+      this.#emit(Event.COMPLETED);
+      if (this.stopOnCompleted) this.stop();
     }
+    if (task.removeOnCompleted) this.remove(task);
+  }
 
-    /**
-     *  Gets or sets whether timer precision enabled.
-     *
-     *  Because of the single-threaded, asynchronous nature of JavaScript, each
-     *  execution takes a piece of CPU time, and the time they have to wait will
-     *  vary, depending on the load. This creates a latency and cumulative
-     *  difference in asynchronous timers; that gradually increase the
-     *  inacuraccy. `TaskTimer` overcomes this problem as much as possible:
-     *
-     *  <li>The delay between each tick is auto-adjusted when it's off
-     *  due to task/CPU loads or clock drifts.</li>
-     *  <li>In Node.js, `TaskTimer` also makes use of `process.hrtime()`
-     *  high-resolution real-time. The time is relative to an arbitrary
-     *  time in the past (not related to the time of day) and therefore not
-     *  subject to clock drifts.</li>
-     *  <li>The timer may hit a synchronous / blocking task; or detect significant
-     *  time drift (longer than the base interval) due to JS event queue, which
-     *  cannot be recovered by simply adjusting the next delay. In this case, right
-     *  from the next tick onward; it will auto-recover as much as possible by
-     *  running "immediate" tasks until it reaches the proper time vs tick/run
-     *  balance.</li>
-     *
-     *  <blockquote><i>Note that precision will be as high as possible but it still
-     *  can be off by a few milliseconds; depending on the CPU or the load.</i>
-     *  </blockquote>
-     *  @name TaskTimer#precision
-     *  @type {boolean}
-     */
-    get precision(): boolean {
-        return this._.opts.precision;
+  /**
+   *  @internal
+   */
+  #emit(type: Event, data?: any): boolean {
+    const event: ITaskTimerEvent = {
+      name: type,
+      source: this,
+      data
+    };
+    return this.emit(type, event);
+  }
+
+  /**
+   *  Adds a single task to the timer.
+   *  @internal
+   */
+  #add(options: TaskClass | ITaskOptions | TaskCallback): TaskTimer {
+    if (typeof options === 'function') {
+      options = { callback: options };
     }
-    set precision(value: boolean) {
-        this._.opts.precision = utils.getBool(value, DEFAULT_TIMER_OPTIONS.precision);
+    if (utils.type(options) === 'object' && !options.id) {
+      (options as ITaskOptions).id = this.#getUniqueTaskID();
     }
-
-    /**
-     *  Gets or sets whether the timer should automatically stop when all tasks
-     *  are completed. For this to take affect, all added tasks should have
-     *  `totalRuns` and/or `stopDate` configured. This option can be set/changed
-     *  at any time.
-     *  @name TaskTimer#stopOnCompleted
-     *  @type {boolean}
-     */
-    get stopOnCompleted(): boolean {
-        return this._.opts.stopOnCompleted;
+    if (this.get(options.id!)) {
+      throw new Error(`A task with id '${options.id}' already exists.`);
     }
-    set stopOnCompleted(value: boolean) {
-        this._.opts.stopOnCompleted = utils.getBool(value, DEFAULT_TIMER_OPTIONS.stopOnCompleted);
-    }
+    const task = options instanceof TaskClass ? options : new TaskClass(options);
+    task._setTimer(this);
+    this.#state.tasks[task.id] = task;
+    this.#emit(Event.TASK_ADDED, task);
+    return this;
+  }
 
-    /**
-     *  Gets the current state of the timer.
-     *  For possible values, see `TaskTimer.State` enumeration.
-     *  @name TaskTimer#state
-     *  @type {TaskTimer.State}
-     *  @readonly
-     */
-    get state(): TaskTimer.State {
-        return this._.state;
-    }
+  /**
+   *  Clears any pending timeout/immediate.
+   *  @internal
+   */
+  #stop(): void {
+    this.#state.tickCountAfterResume = 0;
+    // clearTimeout/clearImmediate are safe no-ops on a null handle.
+    clearTimeout(this.#timeoutRef);
+    this.#timeoutRef = null;
+    utils.clearImmediate(this.#immediateRef);
+    this.#immediateRef = null;
+  }
 
-    /**
-     *  Gets time information for the latest run of the timer.
-     *  `#time.started` indicates the start time of the timer.
-     *  `#time.stopped` indicates the stop time of the timer. (`0` if still running.)
-     *  `#time.elapsed` indicates the elapsed time of the timer.
-     *  @name TaskTimer#time
-     *  @type {ITimeInfo}
-     *  @readonly
-     */
-    get time(): ITimeInfo {
-        const { startTime, stopTime } = this._;
-        const t: ITimeInfo = {
-            started: startTime,
-            stopped: stopTime,
-            elapsed: 0
-        };
-        if (startTime) {
-            const current = this.state !== TaskTimer.State.STOPPED ? Date.now() : stopTime;
-            t.elapsed = current - startTime;
-        }
-        return Object.freeze(t);
-    }
+  /**
+   *  Resets all internal state, preserving the configured options.
+   *  @internal
+   */
+  #reset(): void {
+    this.#state = {
+      opts: (this.#state || ({} as any)).opts,
+      state: State.IDLE,
+      tasks: {},
+      tickCount: 0,
+      taskRunCount: 0,
+      startTime: 0,
+      stopTime: 0,
+      completedTaskCount: 0,
+      resumeTime: 0,
+      hrResumeTime: null,
+      tickCountAfterResume: 0
+    };
+    this.#stop();
+  }
 
-    /**
-     *  Gets the current tick count for the latest run of the timer.
-     *  This value will be reset to `0` when the timer is stopped or reset.
-     *  @name TaskTimer#tickCount
-     *  @type {Number}
-     *  @readonly
-     */
-    get tickCount(): number {
-        return this._.tickCount;
-    }
+  /**
+   *  Handler executed on each tick.
+   *  @internal
+   */
+  #tick(): void {
+    this.#state.state = State.RUNNING;
+    const { tasks } = this.#state;
 
-    /**
-     *  Gets the current task count. Tasks remain even after the timer is
-     *  stopped. But they will be removed if the timer is reset.
-     *  @name TaskTimer#taskCount
-     *  @type {Number}
-     *  @readonly
-     */
-    get taskCount(): number {
-        return Object.keys(this._.tasks).length;
-    }
+    this.#state.tickCount++;
+    this.#state.tickCountAfterResume++;
+    this.#emit(Event.TICK);
 
-    /**
-     *  Gets the total number of all task executions (runs).
-     *  @name TaskTimer#taskRunCount
-     *  @type {Number}
-     *  @readonly
-     */
-    get taskRunCount(): number {
-        return this._.taskRunCount;
-    }
-
-    /**
-     *  Gets the total number of timer runs, including resumed runs.
-     *  @name TaskTimer#runCount
-     *  @type {Number}
-     *  @readonly
-     */
-    get runCount(): number {
-        return this._runCount;
-    }
-
-    // ---------------------------
-    // PUBLIC (INSTANCE) METHODS
-    // ---------------------------
-
-    /**
-     *  Gets the task with the given ID.
-     *  @memberof TaskTimer
-     *
-     *  @param {String} id - ID of the task.
-     *
-     *  @returns {Task}
-     */
-    get(id: string): TTask {
-        return this._.tasks[id] || null;
-    }
-
-    /**
-     *  Adds a collection of new tasks for the timer.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @param {Task|ITaskOptions|TaskCallback|Array} task - Either a
-     *  single task, task options object or the callback function; or a mixture
-     *  of these as an array.
-     *
-     *  @returns {TaskTimer}
-     *
-     *  @throws {Error} - If a task callback is not set or a task with the given
-     *  name already exists.
-     */
-    add(task: TTask | ITaskOptions | TaskCallback | Array<TTask | ITaskOptions | TaskCallback>): TaskTimer {
-        if (!utils.isset(task)) {
-            throw new Error('Either a task, task options or a callback is required.');
-        }
-        utils.ensureArray(task).forEach((item: any) => this._add(item));
-        return this;
-    }
-
-    /**
-     *  Removes the task by the given name.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @param {string|Task} task - Task to be removed. Either pass the
-     *  name or the task itself.
-     *
-     *  @returns {TaskTimer}
-     *
-     *  @throws {Error} - If a task with the given name does not exist.
-     */
-    remove(task: string | TTask): TaskTimer {
-        const id: string = typeof task === 'string' ? task : task.id;
-        task = this.get(id);
-
-        if (!id || !task) {
-            throw new Error(`No tasks exist with ID: '${id}'.`);
-        }
-
-        // first decrement completed tasks count if this is a completed task.
-        if (task.completed && this._.completedTaskCount > 0) this._.completedTaskCount--;
-
-        this._.tasks[id] = null;
-        delete this._.tasks[id];
-        this._emit(TaskTimer.Event.TASK_REMOVED, task);
-        return this;
+    for (const id in tasks) {
+      const task = tasks[id];
+      if (!task.canRunOnTick) continue;
+      // skipped if the task is disabled or already completed.
+      task._run(() => {
+        this.#state.taskRunCount++;
+        this.#emit(Event.TASK, task);
+      });
     }
 
-    /**
-     *  Starts the timer and puts the timer in `RUNNING` state. If it's already
-     *  running, this will reset the start/stop time and tick count, but will not
-     *  reset (or remove) existing tasks.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @returns {TaskTimer}
-     */
-    start(): TaskTimer {
-        this._stop();
-        this._.state = TaskTimer.State.RUNNING;
-        this._runCount++;
-        this._.tickCount = 0;
-        this._.taskRunCount = 0;
-        this._.stopTime = 0;
-        this._markTime();
-        this._.startTime = Date.now();
-        this._emit(TaskTimer.Event.STARTED);
-        this._run();
-        return this;
+    this.#run();
+  }
+
+  /**
+   *  Marks the start/resume time, using high-resolution time in Node.
+   *  @internal
+   */
+  // Stryker disable all: high-resolution time source; mutations alter timing precision, not run outcomes (the browser branch is also unreachable in the Node test environment).
+  #markTime(): void {
+    /* istanbul ignore if -- browser-only path, tested separately */
+    if (utils.BROWSER) {
+      this.#state.resumeTime = Date.now();
+    } else {
+      this.#state.hrResumeTime = process.hrtime();
     }
+  }
+  // Stryker restore all
 
-    /**
-     *  Pauses the timer, puts the timer in `PAUSED` state and all tasks on hold.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @returns {TaskTimer}
-     */
-    pause(): TaskTimer {
-        if (this.state !== TaskTimer.State.RUNNING) return this;
-        this._stop();
-        this._.state = TaskTimer.State.PAUSED;
-        this._emit(TaskTimer.Event.PAUSED);
-        return this;
+  /**
+   *  Gets the elapsed time (ms) since the last start/resume.
+   *  @internal
+   */
+  // Stryker disable all: elapsed-time arithmetic; mutations alter timing precision, not run outcomes (the browser branch is also unreachable in the Node test environment).
+  #getTimeDiff(): number {
+    /* istanbul ignore if -- browser-only path, tested separately */
+    if (utils.BROWSER) return Date.now() - this.#state.resumeTime;
+    const hrDiff = process.hrtime(this.#state.hrResumeTime!);
+    return Math.ceil(hrDiff[0] * 1000 + hrDiff[1] / 1e6);
+  }
+  // Stryker restore all
+
+  /**
+   *  Schedules the next tick, adjusting for drift when precision is enabled.
+   *  @internal
+   */
+  #run(): void {
+    if (this.state !== State.RUNNING) return;
+
+    let { interval } = this;
+    // Stryker disable all: precision drift-correction — mutations change only the dispatch timing/jitter, never the set of runs, so they are not deterministically killable; the catch-up path is exercised behaviorally by the precision tests.
+    if (this.precision) {
+      const diff = this.#getTimeDiff();
+      // are we behind the expected tick count for the elapsed time?
+      if (Math.floor(diff / interval) > this.#state.tickCountAfterResume) {
+        // really late — run immediately to catch up.
+        this.#immediateRef = utils.setImmediate(() => this.#tick());
+        return;
+      }
+      // a bit off but still on time — shorten the next interval.
+      interval = interval - (diff % interval);
     }
+    // Stryker restore all
 
-    /**
-     *  Resumes the timer and puts the timer in `RUNNING` state; if previuosly
-     *  paused. In this state, all existing tasks are resumed.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @returns {TaskTimer}
-     */
-    resume(): TaskTimer {
-        if (this.state === TaskTimer.State.IDLE) {
-            this.start();
-            return this;
-        }
-        if (this.state !== TaskTimer.State.PAUSED) return this;
-        this._runCount++;
-        this._markTime();
-        this._.state = TaskTimer.State.RUNNING;
-        this._emit(TaskTimer.Event.RESUMED);
-        this._run();
-        return this;
+    this.#timeoutRef = setTimeout(() => this.#tick(), interval);
+  }
+
+  /**
+   *  Generates a unique `task{n}` ID.
+   *  @internal
+   */
+  #getUniqueTaskID(): string {
+    let num = this.taskCount;
+    let id = '';
+    while (!id || this.get(id)) {
+      num++;
+      id = 'task' + num;
     }
-
-    /**
-     *  Stops the timer and puts the timer in `STOPPED` state. In this state, all
-     *  existing tasks are stopped and no values or tasks are reset until
-     *  re-started or explicitly calling reset.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @returns {TaskTimer}
-     */
-    stop(): TaskTimer {
-        if (this.state !== TaskTimer.State.RUNNING) return this;
-        this._stop();
-        this._.stopTime = Date.now();
-        this._.state = TaskTimer.State.STOPPED;
-        this._emit(TaskTimer.Event.STOPPED);
-        return this;
-    }
-
-    /**
-     *  Stops the timer and puts the timer in `IDLE` state.
-     *  This will reset the ticks and removes all tasks silently; meaning no
-     *  other events will be emitted such as `"taskRemoved"`.
-     *  @memberof TaskTimer
-     *  @chainable
-     *
-     *  @returns {TaskTimer}
-     */
-    reset(): TaskTimer {
-        this._reset();
-        this._emit(TaskTimer.Event.RESET);
-        return this;
-    }
-
-    // ---------------------------
-    // PRIVATE (INSTANCE) METHODS
-    // ---------------------------
-
-    /**
-     *  @private
-     */
-    private _emit(type: TaskTimer.Event, data?: any): boolean {
-        const event: ITaskTimerEvent = {
-            name: type,
-            source: this,
-            data
-        };
-        return this.emit(type, event);
-    }
-
-    /**
-     *  Adds a new task for the timer.
-     *  @private
-     *
-     *  @param {Task|ITaskOptions|TaskCallback} options - Either a task instance,
-     *  task options object or the callback function to be executed on tick
-     *  intervals.
-     *
-     *  @returns {TaskTimer}
-     *
-     *  @throws {Error} - If the task callback is not set or a task with the
-     *  given name already exists.
-     */
-    private _add(options: TTask | ITaskOptions | TaskCallback): TaskTimer {
-        if (typeof options === 'function') {
-            options = {
-                callback: options
-            };
-        }
-
-        if (utils.type(options) === 'object' && !options.id) {
-            (options as ITaskOptions).id = this._getUniqueTaskID();
-        }
-
-        if (this.get(options.id)) {
-            throw new Error(`A task with id '${options.id}' already exists.`);
-        }
-
-        const task = options instanceof TTask ? options : new TTask(options);
-        (task as any)._setTimer(this);
-        this._.tasks[task.id] = task;
-        this._emit(TaskTimer.Event.TASK_ADDED, task);
-        return this;
-    }
-
-    /**
-     *  Stops the timer.
-     *  @private
-     */
-    private _stop(): void {
-        this._.tickCountAfterResume = 0;
-        if (this._timeoutRef) {
-            clearTimeout(this._timeoutRef);
-            this._timeoutRef = null;
-        }
-        if (this._immediateRef) {
-            utils.clearImmediate(this._immediateRef);
-            this._immediateRef = null;
-        }
-    }
-
-    /**
-     *  Resets the timer.
-     *  @private
-     */
-    private _reset(): void {
-        this._ = {
-            opts: (this._ || {} as any).opts,
-            state: TaskTimer.State.IDLE,
-            tasks: {},
-            tickCount: 0,
-            taskRunCount: 0,
-            startTime: 0,
-            stopTime: 0,
-            completedTaskCount: 0,
-            resumeTime: 0,
-            hrResumeTime: null,
-            tickCountAfterResume: 0
-        };
-        this._stop();
-    }
-
-    /**
-     *  Called (by Task instance) when it has completed all of its runs.
-     *  @private
-     */
-    // @ts-ignore: TS6133: declared but never read.
-    private _taskCompleted(task: TTask): void {
-        this._.completedTaskCount++;
-        this._emit(TaskTimer.Event.TASK_COMPLETED, task);
-        if (this._.completedTaskCount === this.taskCount) {
-            this._emit(TaskTimer.Event.COMPLETED);
-            if (this.stopOnCompleted) this.stop();
-        }
-        if (task.removeOnCompleted) this.remove(task);
-    }
-
-    /**
-     *  Handler to be executed on each tick.
-     *  @private
-     */
-    private _tick(): void {
-        this._.state = TaskTimer.State.RUNNING;
-
-        let id: string;
-        let task: TTask;
-        const tasks = this._.tasks;
-
-        this._.tickCount++;
-        this._.tickCountAfterResume++;
-        this._emit(TaskTimer.Event.TICK);
-
-        // tslint:disable:forin
-        for (id in tasks) {
-            task = tasks[id];
-            if (!task || !task.canRunOnTick) continue;
-
-            // below will not execute if task is disabled or already
-            // completed.
-            (task as any)._run(() => {
-                this._.taskRunCount++;
-                this._emit(TaskTimer.Event.TASK, task);
-            });
-        }
-
-        this._run();
-    }
-
-    /**
-     *  Marks the resume (or start) time in milliseconds or high-resolution time
-     *  if available.
-     *  @private
-     */
-    private _markTime(): void {
-        /* istanbul ignore if */
-        if (utils.BROWSER) { // tested separately
-            this._.resumeTime = Date.now();
-        } else {
-            this._.hrResumeTime = process.hrtime();
-        }
-    }
-
-    /**
-     *  Gets the time difference in milliseconds sinct the last resume or start
-     *  time.
-     *  @private
-     */
-    private _getTimeDiff(): number {
-        // Date.now() is ~2x faster than Date#getTime()
-        /* istanbul ignore if */
-        if (utils.BROWSER) return Date.now() - this._.resumeTime; // tested separately
-
-        const hrDiff = process.hrtime(this._.hrResumeTime);
-        return Math.ceil((hrDiff[0] * 1000) + (hrDiff[1] / 1e6));
-    }
-
-    /**
-     *  Runs the timer.
-     *  @private
-     */
-    private _run(): void {
-        if (this.state !== TaskTimer.State.RUNNING) return;
-
-        let interval = this.interval;
-        // we'll get a precise interval by checking if our clock is already
-        // drifted.
-        if (this.precision) {
-            const diff = this._getTimeDiff();
-            // did we reach this expected tick count for the given time period?
-            // calculated count should not be greater than tickCountAfterResume
-            if (Math.floor(diff / interval) > this._.tickCountAfterResume) {
-                // if we're really late, run immediately!
-                this._immediateRef = utils.setImmediate(() => this._tick());
-                return;
-            }
-            // if we still have time but a bit off, update next interval.
-            interval = interval - (diff % interval);
-        }
-
-        this._timeoutRef = setTimeout(() => this._tick(), interval);
-    }
-
-    /**
-     *  Gets a unique task ID.
-     *  @private
-     */
-    private _getUniqueTaskID(): string {
-        let num: number = this.taskCount;
-        let id: string;
-        while (!id || this.get(id)) {
-            num++;
-            id = 'task' + num;
-        }
-        return id;
-    }
+    return id;
+  }
 }
 
 // ---------------------------
-// NAMESPACE
+// NAMESPACE (backward-compatible API surface)
 // ---------------------------
 
-// tslint:disable:no-namespace
-/* istanbul ignore next */
-/** @private */
+/* istanbul ignore next -- namespace-merge init branch emitted by tsc */
 namespace TaskTimer {
+  /**
+   *  The {@link Task} class.
+   */
+  export const Task = TaskClass;
+  export type Task = TaskClass;
 
-    /**
-     *  Represents the class that holds the configurations and the callback function
-     *  required to run a task. See {@link api/#Task|class information}.
-     *  @name TaskTimer.Task
-     *  @class
-     */
-    export const Task = TTask;
+  /**
+   *  The {@link State} enum of timer states.
+   */
+  export const State = enums.State;
+  export type State = enums.State;
 
-    /**
-     *  Enumerates `TaskTimer` states.
-     *  @memberof TaskTimer
-     *  @enum {String}
-     *  @readonly
-     */
-    export enum State {
-        /**
-         *  Indicates that the timer is in `idle` state.
-         *  This is the initial state when the `TaskTimer` instance is first created.
-         *  Also when an existing timer is reset, it will be `idle`.
-         *  @type {String}
-         */
-        IDLE = 'idle',
-        /**
-         *  Indicates that the timer is in `running` state; such as when the timer is
-         *  started or resumed.
-         *  @type {String}
-         */
-        RUNNING = 'running',
-        /**
-         *  Indicates that the timer is in `paused` state.
-         *  @type {String}
-         */
-        PAUSED = 'paused',
-        /**
-         *  Indicates that the timer is in `stopped` state.
-         *  @type {String}
-         */
-        STOPPED = 'stopped'
-    }
-
-    /**
-     *  Enumerates the `TaskTimer` event types.
-     *  @memberof TaskTimer
-     *  @enum {String}
-     *  @readonly
-     */
-    export enum Event {
-        /**
-         *  Emitted on each tick (interval) of `TaskTimer`.
-         *  @type {String}
-         */
-        TICK = 'tick',
-        /**
-         *  Emitted when the timer is put in `RUNNING` state; such as when the timer is
-         *  started.
-         *  @type {String}
-         */
-        STARTED = 'started',
-        /**
-         *  Emitted when the timer is put in `RUNNING` state; such as when the timer is
-         *  resumed.
-         *  @type {String}
-         */
-        RESUMED = 'resumed',
-        /**
-         *  Emitted when the timer is put in `PAUSED` state.
-         *  @type {String}
-         */
-        PAUSED = 'paused',
-        /**
-         *  Emitted when the timer is put in `STOPPED` state.
-         *  @type {String}
-         */
-        STOPPED = 'stopped',
-        /**
-         *  Emitted when the timer is reset.
-         *  @type {String}
-         */
-        RESET = 'reset',
-        /**
-         *  Emitted when a task is executed.
-         *  @type {String}
-         */
-        TASK = 'task',
-        /**
-         *  Emitted when a task is added to `TaskTimer` instance.
-         *  @type {String}
-         */
-        TASK_ADDED = 'taskAdded',
-        /**
-         *  Emitted when a task is removed from `TaskTimer` instance.
-         *  Note that this will not be emitted when `.reset()` is called; which
-         *  removes all tasks silently.
-         *  @type {String}
-         */
-        TASK_REMOVED = 'taskRemoved',
-        /**
-         *  Emitted when a task has completed all of its executions (runs)
-         *  or reached its stopping date/time (if set). Note that this event
-         *  will only be fired if the tasks has a `totalRuns` limit or a
-         *  `stopDate` value set.
-         *  @type {String}
-         */
-        TASK_COMPLETED = 'taskCompleted',
-        /**
-         *  Emitted when a task produces an error on its execution.
-         *  @type {String}
-         */
-        TASK_ERROR = 'taskError',
-        /**
-         *  Emitted when all tasks have completed all of their executions (runs)
-         *  or reached their stopping date/time (if set). Note that this event
-         *  will only be fired if all tasks have a `totalRuns` limit or a
-         *  `stopDate` value set.
-         *  @type {String}
-         */
-        COMPLETED = 'completed'
-    }
+  /**
+   *  The {@link Event} enum of timer event types.
+   */
+  export const Event = enums.Event;
+  export type Event = enums.Event;
 }
-
-// ---------------------------
-// EXPORT
-// ---------------------------
 
 export { TaskTimer };

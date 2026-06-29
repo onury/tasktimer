@@ -1,7 +1,14 @@
-export * from './ITaskOptions';
-export * from './ITaskTimerOptions';
-export * from './ITaskTimerEvent';
-export * from './ITimeInfo';
-export * from './Task';
-export * from './TaskCallback';
-export * from './TaskTimer';
+export { EventEmitter } from './core/index.js';
+export { Event, State } from './enums/index.js';
+export { Task } from './Task.js';
+export { TaskTimer } from './TaskTimer.js';
+export type {
+  EventListener,
+  EventName,
+  ITaskBaseOptions,
+  ITaskOptions,
+  ITaskTimerEvent,
+  ITaskTimerOptions,
+  ITimeInfo,
+  TaskCallback
+} from './types/index.js';

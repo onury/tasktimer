@@ -1,75 +1,70 @@
 {
-    "name": "tasktimer",
-    "version": "3.0.0",
-    "description": "An accurate timer utility for running periodic tasks on the given interval ticks or dates. (Node and Browser)",
-    "author": "Onur Yıldırım <onur@cutepilot.com>",
-    "license": "MIT",
-    "main": "lib/tasktimer.min.js",
-    "types": "lib/index.d.ts",
-    "files": [
-        "lib/",
-        "LICENSE"
-    ],
-    "scripts": {
-        "audit": "npm audit --production",
-        "size": "gzip-size ./lib/tasktimer.min.js",
-        "clean": "rimraf ./lib",
-        "build:dev": "webpack --mode=development --env.WEBPACK_OUT=development --progress --colors",
-        "build:prod": "webpack --mode=production --env.WEBPACK_OUT=production --progress --colors",
-        "build": "npm run clean && npm run build:dev && npm run build:prod",
-        "test": "jest --coverage --verbose --no-cache --runInBand -c ./jest.json",
-        "test:browser": "npm run clean && npm run build:dev && jest --verbose --no-cache --runInBand -c ./jest-puppeteer.json",
-        "test:serve": "node ./test/_server",
-        "coveralls": "cat ./test/coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js -v",
-        "docs": "npm run build:dev && docma"
+  "name": "tasktimer",
+  "version": "4.0.0",
+  "description": "An accurate timer utility for running periodic tasks on the given interval ticks or dates.",
+  "author": "Onur Yıldırım <onur@cutepilot.com>",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "module": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
     },
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/onury/tasktimer.git"
-    },
-    "keywords": [
-        "timer",
-        "interval",
-        "tick",
-        "task",
-        "schedule",
-        "timeout",
-        "alarm",
-        "clock",
-        "time",
-        "job",
-        "work",
-        "run"
-    ],
-    "bugs": {
-        "url": "https://github.com/onury/tasktimer/issues"
-    },
-    "homepage": "https://github.com/onury/tasktimer#readme",
-    "devDependencies": {
-        "@types/expect-puppeteer": "^3.3.1",
-        "@types/jest": "^24.0.16",
-        "@types/jest-environment-puppeteer": "^4.0.0",
-        "@types/puppeteer": "^1.19.0",
-        "coveralls": "^3.0.5",
-        "docma": "^3.2.2",
-        "express": "^4.17.1",
-        "fork-ts-checker-webpack-plugin": "^1.4.3",
-        "is-ci": "^2.0.0",
-        "jest": "^24.8.0",
-        "jest-cli": "^24.8.0",
-        "jest-environment-node": "^24.8.0",
-        "jest-puppeteer": "^4.3.0",
-        "puppeteer": "^1.19.0",
-        "rimraf": "^2.6.3",
-        "table": "^5.4.5",
-        "ts-jest": "^24.0.2",
-        "ts-loader": "^6.0.4",
-        "typescript": "^3.5.3",
-        "uglifyjs-webpack-plugin": "^2.2.0",
-        "webpack": "^4.39.0",
-        "webpack-cli": "^3.3.6"
-    },
-    "dependencies": {
-        "eventemitter3": "^4.0.0"
-    }
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "lib",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "biome check src test",
+    "format": "biome check --write src test",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "npm run lint && npm run typecheck",
+    "test": "vitest run",
+    "cover": "vitest run --coverage",
+    "mutation": "stryker run",
+    "docs": "npm --prefix site run build",
+    "docs:dev": "npm --prefix site run dev",
+    "docs:host": "npm --prefix site run dev:host",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": "onury/tasktimer",
+  "keywords": [
+    "timer",
+    "interval",
+    "tick",
+    "task",
+    "schedule",
+    "timeout",
+    "alarm",
+    "clock",
+    "time",
+    "job",
+    "work",
+    "run"
+  ],
+  "bugs": {
+    "url": "https://github.com/onury/tasktimer/issues"
+  },
+  "homepage": "https://onury.io/tasktimer",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^26.0.1",
+    "@vitest/coverage-istanbul": "^4.1.9",
+    "biome-config-oy": "^1.1.0",
+    "tsconfig-oy": "^2.0.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
 }

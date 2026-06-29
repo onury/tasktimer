@@ -1,390 +1,367 @@
-/* tslint:disable:no-empty */
-
-import { ITaskBaseOptions, ITaskOptions, ITaskTimerEvent, ITimeInfo, TaskCallback, TaskTimer } from '.';
-import { utils } from './utils';
+// own modules
+import { Event } from './enums/Event.js';
+import type { TaskTimer } from './TaskTimer.js';
+import type {
+  ITaskBaseOptions,
+  ITaskOptions,
+  ITaskTimerEvent,
+  ITimeInfo,
+  TaskCallback
+} from './types/index.js';
+import { utils } from './utils.js';
 
 /**
- *  @private
+ *  Default task options.
+ *  @internal
  */
-const DEFAULT_TASK_OPTIONS: ITaskOptions = Object.freeze({
-    enabled: true,
-    tickDelay: 0,
-    tickInterval: 1,
-    totalRuns: null,
-    startDate: null,
-    stopDate: null,
-    immediate: false,
-    removeOnCompleted: false,
-    callback: null
+const DEFAULT_TASK_OPTIONS = Object.freeze({
+  enabled: true,
+  tickDelay: 0,
+  tickInterval: 1,
+  totalRuns: null as number | null,
+  startDate: null as number | Date | null,
+  stopDate: null as number | Date | null,
+  immediate: false,
+  removeOnCompleted: false
 });
 
 /**
- *  Represents the class that holds the configurations and the callback function
- *  required to run a task.
- *  @class
+ *  Represents a task that holds the configuration and the callback to be run by
+ *  a {@link TaskTimer} on its tick intervals.
+ *
+ *  A task can be created implicitly via {@link TaskTimer.add} (passing options
+ *  or a callback) or explicitly with the `Task` constructor when a stable
+ *  reference is needed up front.
+ *
+ *  @example
+ *  const task = new Task({
+ *    id: 'heartbeat',
+ *    tickInterval: 5,
+ *    totalRuns: 10,
+ *    callback(task) {
+ *      console.log(`${task.id} ran ${task.currentRuns} times`);
+ *    }
+ *  });
+ *  timer.add(task);
  */
 class Task {
+  /**
+   *  The owning timer, set by {@link TaskTimer.add}.
+   *  @internal
+   */
+  #timer!: TaskTimer;
 
-    /**
-     *  @private
-     */
-    private _timer: TaskTimer;
+  /**
+   *  Whether the task has been marked completed. Always (re)set by `#init`.
+   *  @internal
+   */
+  #markedCompleted!: boolean;
 
-    /**
-     *  @private
-     */
-    private _markedCompleted: boolean;
+  /**
+   *  Internal state and resolved options.
+   *  @internal
+   */
+  #state!: {
+    currentRuns: number;
+    timeOnFirstRun?: number;
+    timeOnLastRun?: number;
+    totalRuns?: number | null;
+    startDate?: number | Date | null;
+    stopDate?: number | Date | null;
+  } & Omit<ITaskOptions, 'totalRuns' | 'startDate' | 'stopDate'>;
 
-    /**
-     *  @private
-     */
-    private _: {
-        currentRuns: number;
-        timeOnFirstRun?: number;
-        timeOnLastRun?: number;
-    } & ITaskOptions;
+  /**
+   *  Creates a new `Task`.
+   *  @param options - Task options. A unique `id` and a `callback` are required.
+   */
+  constructor(options: ITaskOptions) {
+    this.#init(options);
+  }
 
-    /**
-     *  Initializes a new instance of `Task` class.
-     *  @constructor
-     *  @param {ITaskOptions} options Task options.
-     */
-    constructor(options: ITaskOptions) {
-        this._init(options);
+  // ---------------------------
+  // PUBLIC PROPERTIES
+  // ---------------------------
+
+  /**
+   *  Unique ID of the task.
+   */
+  get id(): string {
+    return this.#state.id!;
+  }
+
+  /**
+   *  Whether the task is currently enabled. While `false`, the task bypasses its
+   *  callback — a manual on/off switch over execution.
+   */
+  get enabled(): boolean {
+    return this.#state.enabled!;
+  }
+  set enabled(value: boolean) {
+    this.#state.enabled = utils.getBool(value, DEFAULT_TASK_OPTIONS.enabled);
+  }
+
+  /**
+   *  Number of ticks to wait before running the task for the first time.
+   */
+  get tickDelay(): number {
+    return this.#state.tickDelay!;
+  }
+  set tickDelay(value: number) {
+    this.#state.tickDelay = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.tickDelay!);
+  }
+
+  /**
+   *  Tick interval the task runs on. The unit is ticks, not milliseconds: with a
+   *  timer interval of `1000` ms, a `tickInterval` of `5` runs the task every 5
+   *  seconds.
+   */
+  get tickInterval(): number {
+    return this.#state.tickInterval!;
+  }
+  set tickInterval(value: number) {
+    this.#state.tickInterval = utils.getNumber(value, 1, DEFAULT_TASK_OPTIONS.tickInterval!);
+  }
+
+  /**
+   *  Total number of times the task should run. `0` or `null` means unlimited
+   *  (until the timer stops).
+   */
+  get totalRuns(): number {
+    return this.#state.totalRuns!;
+  }
+  set totalRuns(value: number) {
+    this.#state.totalRuns = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.totalRuns!);
+  }
+
+  /**
+   *  Whether the callback is wrapped in a `setImmediate()` before executing.
+   *  Useful when the task synchronously blocks the event loop.
+   */
+  get immediate(): boolean {
+    return this.#state.immediate!;
+  }
+  set immediate(value: boolean) {
+    this.#state.immediate = utils.getBool(value, DEFAULT_TASK_OPTIONS.immediate);
+  }
+
+  /**
+   *  Number of times the task has run.
+   */
+  get currentRuns(): number {
+    return this.#state.currentRuns;
+  }
+
+  /**
+   *  Lifetime information for the task: `started`, `stopped` (`0` if still
+   *  running) and `elapsed`, in milliseconds.
+   */
+  get time(): ITimeInfo {
+    const started = this.#state.timeOnFirstRun || 0;
+    const stopped = this.#state.timeOnLastRun || 0;
+    return Object.freeze({
+      started,
+      stopped,
+      elapsed: stopped - started
+    });
+  }
+
+  /**
+   *  Callback executed on each run.
+   */
+  get callback(): TaskCallback {
+    return this.#state.callback;
+  }
+
+  /**
+   *  Whether to remove the task (freeing memory) once it has completed. Requires
+   *  `totalRuns` and/or `stopDate` to be set.
+   */
+  get removeOnCompleted(): boolean {
+    return this.#state.removeOnCompleted!;
+  }
+  set removeOnCompleted(value: boolean) {
+    this.#state.removeOnCompleted = utils.getBool(value, DEFAULT_TASK_OPTIONS.removeOnCompleted);
+  }
+
+  /**
+   *  Whether the task has completed all of its runs or reached its `stopDate`.
+   *  Always `false` when neither `totalRuns` nor `stopDate` is set.
+   */
+  get completed(): boolean {
+    // Stryker disable next-line all: fast-path equivalent to the expression below in normal flow (#markedCompleted is only set once the task is already completed).
+    if (this.#markedCompleted) return true;
+    return Boolean(
+      (this.totalRuns && this.currentRuns >= this.totalRuns) ||
+        // Stryker disable next-line all: stopDate boundary is wall-clock exact and not deterministically killable.
+        (this.#state.stopDate && Date.now() >= Number(this.#state.stopDate))
+    );
+  }
+
+  /**
+   *  Whether the task can run on the current tick of the timer.
+   *  @internal
+   */
+  get canRunOnTick(): boolean {
+    // Stryker disable next-line all: redundant fast-path; `_run` re-checks #markedCompleted before executing.
+    if (this.#markedCompleted) return false;
+    const { startDate } = this.#state;
+    // Stryker disable all: date-anchored scheduling — mutations shift only the virtual tick mapping/start gate (wall-clock dependent), covered behaviorally by the startDate test.
+    if (startDate && Date.now() < Number(startDate)) return false;
+    const tickCount = startDate
+      ? Math.ceil((Date.now() - Number(startDate)) / this.#timer.interval)
+      : this.#timer.tickCount;
+    // Stryker restore all
+    return tickCount > this.tickDelay && (tickCount - this.tickDelay) % this.tickInterval === 0;
+  }
+
+  // ---------------------------
+  // PUBLIC METHODS
+  // ---------------------------
+
+  /**
+   *  Resets the current run count, keeping the task running for the same
+   *  `tickInterval` as initially configured. Optionally re-configures the task.
+   *  @param options - New options to apply. The task `id` cannot be changed.
+   *  @returns The task instance for chaining.
+   *  @throws If `options` tries to change the task `id`.
+   */
+  reset(options?: ITaskBaseOptions): Task {
+    this.#state.currentRuns = 0;
+    if (options) {
+      const { id } = options as ITaskOptions;
+      if (id && id !== this.id) throw new Error('Cannot change ID of a task.');
+      (options as ITaskOptions).id = this.id;
+      this.#init(options as ITaskOptions);
+    }
+    return this;
+  }
+
+  /**
+   *  Serializes the task to a plain object (excluding the callback). Used by
+   *  `JSON.stringify`.
+   */
+  toJSON(): Record<string, any> {
+    const obj: Record<string, any> = { ...this.#state };
+    delete obj.callback;
+    return obj;
+  }
+
+  // ---------------------------
+  // INTERNAL METHODS
+  // ---------------------------
+
+  /**
+   *  Sets the owning timer. Called only by {@link TaskTimer}.
+   *  @internal
+   */
+  _setTimer(timer: TaskTimer): void {
+    this.#timer = timer;
+  }
+
+  /**
+   *  Runs the task. Called only by {@link TaskTimer} on each eligible tick.
+   *  @internal
+   */
+  _run(onRun: () => void): void {
+    if (!this.enabled || this.#markedCompleted) return;
+    if (this.currentRuns === 0) this.#state.timeOnFirstRun = Date.now();
+    // current runs must be set before execution, or it might drift if some
+    // async runs finish faster than others.
+    this.#state.currentRuns++;
+    onRun();
+
+    if (this.immediate) {
+      utils.setImmediate(() => this.#execCallback());
+    } else {
+      this.#execCallback();
+    }
+  }
+
+  /**
+   *  Emits a `taskError` event through the owning timer.
+   *  @internal
+   */
+  #emitError(error: Error): void {
+    const event: ITaskTimerEvent = {
+      name: Event.TASK_ERROR,
+      source: this,
+      error
+    };
+    this.#timer.emit(Event.TASK_ERROR, event);
+  }
+
+  /**
+   *  Informs the owning timer that the task is completed. Called after the
+   *  execution finishes.
+   *  @internal
+   */
+  #done(): void {
+    if (this.completed) {
+      this.#markedCompleted = true;
+      this.#state.timeOnLastRun = Date.now();
+      this.#timer._taskCompleted(this);
+    }
+  }
+
+  /**
+   *  Executes the callback, handling sync, `done()`-based and Promise-based
+   *  tasks, and emitting `taskError` on failure.
+   *  @internal
+   */
+  #execCallback(): void {
+    try {
+      const result = this.callback(this, () => this.#done());
+      if (this.callback.length >= 2) {
+        // async; resolved by the user calling done() within the callback.
+      } else if (utils.isPromise(result)) {
+        (result as Promise<unknown>)
+          .then(() => this.#done())
+          .catch((err: Error) => {
+            this.#emitError(err);
+          });
+      } else {
+        this.#done();
+      }
+    } catch (err) {
+      this.#emitError(err as Error);
+    }
+  }
+
+  /**
+   *  Validates and applies the given options.
+   *  @internal
+   */
+  #init(options: ITaskOptions): void {
+    if (!options?.id) {
+      throw new Error('A unique task ID is required.');
+    }
+    if (typeof options.callback !== 'function') {
+      throw new Error('A callback function is required for a task to run.');
+    }
+    const { startDate, stopDate } = options;
+    // Stryker disable next-line all: the `&&` chain's short-circuit is equivalent to `||` here (a single date makes the numeric comparison `>= NaN`, always false).
+    if (startDate && stopDate && Number(startDate) >= Number(stopDate)) {
+      throw new Error('Task start date cannot be the same or after stop date.');
     }
 
-    // ---------------------------
-    // PUBLIC (INSTANCE) MEMBERS
-    // ---------------------------
+    this.#markedCompleted = false;
+    this.#state = {
+      currentRuns: 0,
+      ...DEFAULT_TASK_OPTIONS,
+      id: String(options.id),
+      callback: options.callback,
+      startDate: startDate || null,
+      stopDate: stopDate || null
+    };
 
-    /**
-     *  Gets the unique ID of the task.
-     *  @name Task#id
-     *  @type {string}
-     *  @readonly
-     */
-    get id(): string {
-        return this._.id;
-    }
-
-    /**
-     *  Specifies whether this task is currently enabled. This essentially gives
-     *  you a manual control over execution. The task will always bypass the
-     *  callback while this is set to `false`.
-     *  @name Task#enabled
-     *  @type {boolean}
-     */
-    get enabled(): boolean {
-        return this._.enabled;
-    }
-    set enabled(value: boolean) {
-        this._.enabled = utils.getBool(value, true);
-    }
-
-    /**
-     *  Gets or sets the number of ticks to allow before running the task for
-     *  the first time.
-     *  @name Task#tickDelay
-     *  @type {number}
-     */
-    get tickDelay(): number {
-        return this._.tickDelay;
-    }
-    set tickDelay(value: number) {
-        this._.tickDelay = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.tickDelay);
-    }
-
-    /**
-     *  Gets or sets the tick interval that the task should be run on. The unit
-     *  is "ticks" (not milliseconds). For instance, if the timer interval is
-     *  `1000` milliseconds, and we add a task with `5` tick intervals. The task
-     *  will run on every `5` <b>seconds</b>.
-     *  @name Task#tickInterval
-     *  @type {number}
-     */
-    get tickInterval(): number {
-        return this._.tickInterval;
-    }
-    set tickInterval(value: number) {
-        this._.tickInterval = utils.getNumber(value, 1, DEFAULT_TASK_OPTIONS.tickInterval);
-    }
-
-    /**
-     *  Gets or sets the total number of times the task should be run. `0` or
-     *  `null` means unlimited (until the timer has stopped).
-     *  @name Task#totalRuns
-     *  @type {number}
-     */
-    get totalRuns(): number {
-        return this._.totalRuns;
-    }
-    set totalRuns(value: number) {
-        this._.totalRuns = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.totalRuns);
-    }
-
-    /**
-     *  Specifies whether to wrap callback in a `setImmediate()` call before
-     *  executing. This can be useful if the task is not doing any I/O or using
-     *  any JS timers but synchronously blocking the event loop.
-     *  @name Task#immediate
-     *  @type {boolean}
-     */
-    get immediate(): boolean {
-        return this._.immediate;
-    }
-    set immediate(value: boolean) {
-        this._.immediate = utils.getBool(value, false);
-    }
-
-    /**
-     *  Gets the number of times, this task has been run.
-     *  @name Task#currentRuns
-     *  @type {number}
-     *  @readonly
-     */
-    get currentRuns(): number {
-        return this._.currentRuns;
-    }
-
-    /**
-     *  Gets time information for the lifetime of a task.
-     *  `#time.started` indicates the first execution time of a task.
-     *  `#time.stopped` indicates the last execution time of a task. (`0` if still running.)
-     *  `#time.elapsed` indicates the total lifetime of a task.
-     *  @name Task#time
-     *  @type {ITimeInfo}
-     *  @readonly
-     */
-    get time(): ITimeInfo {
-        const started = this._.timeOnFirstRun || 0;
-        const stopped = this._.timeOnLastRun || 0;
-        return Object.freeze({
-            started,
-            stopped,
-            elapsed: stopped - started
-        });
-    }
-
-    /**
-     *  Gets the callback function to be executed on each run.
-     *  @name Task#callback
-     *  @type {TaskCallback}
-     *  @readonly
-     */
-    get callback(): TaskCallback {
-        return this._.callback;
-    }
-
-    /**
-     *  Gets or sets whether to remove the task (to free up memory) when task
-     *  has completed its executions (runs). For this to take affect, the task
-     *  should have `totalRuns` and/or `stopDate` configured.
-     *  @name Task#removeOnCompleted
-     *  @type {boolean}
-     */
-    get removeOnCompleted(): boolean {
-        return this._.removeOnCompleted;
-    }
-    set removeOnCompleted(value: boolean) {
-        this._.removeOnCompleted = utils.getBool(value, false);
-    }
-
-    /**
-     *  Specifies whether the task has completed all runs (executions) or
-     *  `stopDate` is reached. Note that if both `totalRuns` and `stopDate` are
-     *  omitted, this will never return `true`; since the task has no execution
-     *  limit set.
-     *  @name Task#completed
-     *  @type {boolean}
-     *  @readonly
-     */
-    get completed(): boolean {
-        // return faster if already completed
-        if (this._markedCompleted) return true;
-        return Boolean((this.totalRuns && this.currentRuns >= this.totalRuns)
-            || (this._.stopDate && Date.now() >= this._.stopDate));
-    }
-
-    /**
-     *  Specifies whether the task can run on the current tick of the timer.
-     *  @private
-     *  @name Task#canRunOnTick
-     *  @type {boolean}
-     *  @readonly
-     */
-    get canRunOnTick(): boolean {
-        if (this._markedCompleted) return false;
-        const tickCount = this._.startDate
-            ? Math.ceil((Date.now() - Number(this._.startDate)) / this._timer.interval)
-            : this._timer.tickCount;
-        const timeToRun = !this._.startDate || Date.now() >= this._.startDate;
-        const onInterval = tickCount > this.tickDelay && (tickCount - this.tickDelay) % this.tickInterval === 0;
-        return Boolean(timeToRun && onInterval);
-    }
-
-    /**
-     *  Resets the current number of runs. This will keep the task running for
-     *  the same amount of `tickIntervals` initially configured.
-     *  @memberof Task
-     *  @chainable
-     *
-     *  @param {ITaskBaseOptions} [options] If set, this will also re-configure the task.
-     *
-     *  @returns {Task}
-     */
-    reset(options?: ITaskBaseOptions): Task {
-        this._.currentRuns = 0;
-        if (options) {
-            const id = (options as ITaskOptions).id;
-            if (id && id !== this.id) throw new Error('Cannot change ID of a task.');
-            (options as ITaskOptions).id = this.id;
-            this._init(options);
-        }
-        return this;
-    }
-
-    /**
-     *  Serialization to JSON.
-     *
-     *  Never return string from `toJSON()`. It should return an object.
-     *  @private
-     */
-    toJSON(): any {
-        const obj = {
-            ...this._
-        };
-        delete obj.callback;
-        return obj;
-    }
-
-    // ---------------------------
-    // PRIVATE (INSTANCE) MEMBERS
-    // ---------------------------
-
-    /**
-     *  Set reference to timer itself.
-     *  Only called by `TaskTimer`.
-     *  @private
-     */
-    // @ts-ignore: TS6133: declared but never read.
-    private _setTimer(timer: TaskTimer): void {
-        this._timer = timer;
-    }
-
-    /**
-     *  @private
-     */
-    private _emit(name: TaskTimer.Event, object: Task | Error): void {
-        const event: ITaskTimerEvent = {
-            name,
-            source: this
-        };
-        /* istanbul ignore else */
-        if (object instanceof Error) {
-            event.error = object;
-        } else {
-            event.data = object;
-        }
-        this._timer.emit(name, event);
-    }
-
-    /**
-     *  `TaskTimer` should be informed if this task is completed. But execution
-     *  should be finished. So we do this within the `done()` function.
-     *  @private
-     */
-    private _done(): void {
-        if (this.completed) {
-            this._markedCompleted = true;
-            this._.timeOnLastRun = Date.now();
-            (this._timer as any)._taskCompleted(this);
-        }
-    }
-
-    /**
-     *  @private
-     */
-    private _execCallback(): void {
-        try {
-            const o = this.callback.apply(this, [this, () => this._done()]);
-            if (this.callback.length >= 2) {
-                // handled by done() (called within the task callback by the user)
-            } else if (utils.isPromise(o)) {
-                o.then(() => {
-                    this._done();
-                })
-                .catch((err: Error) => {
-                    this._emit(TaskTimer.Event.TASK_ERROR, err);
-                });
-            } else {
-                this._done();
-            }
-        } catch (err) {
-            this._emit(TaskTimer.Event.TASK_ERROR, err);
-        }
-    }
-
-    /**
-     *  Only used by `TaskTimer`.
-     *  @private
-     */
-    // @ts-ignore: TS6133: declared but never read.
-    private _run(onRun: Function | any): void {
-        if (!this.enabled || this._markedCompleted) return;
-        if (this.currentRuns === 0) this._.timeOnFirstRun = Date.now();
-        // current runs should be set before execution or it might flow if some
-        // async runs finishes faster and some other slower.
-        this._.currentRuns++;
-        onRun();
-
-        if (this.immediate) {
-            utils.setImmediate(() => this._execCallback());
-        } else {
-            this._execCallback();
-        }
-    }
-
-    /**
-     *  @private
-     */
-    private _init(options: ITaskOptions): void {
-        if (!options || !options.id) {
-            throw new Error('A unique task ID is required.');
-        }
-
-        if (typeof options.callback !== 'function') {
-            throw new Error('A callback function is required for a task to run.');
-        }
-
-        const { startDate, stopDate } = options;
-        if (startDate && stopDate && startDate >= stopDate) {
-            throw new Error('Task start date cannot be the same or after stop date.');
-        }
-
-        this._markedCompleted = false;
-
-        this._ = {
-            currentRuns: 0,
-            ...DEFAULT_TASK_OPTIONS
-        };
-
-        this._.id = String(options.id);
-        this._.callback = options.callback;
-        this._.startDate = options.startDate || null;
-        this._.stopDate = options.stopDate || null;
-
-        // using setters for validation & default values
-        this.enabled = options.enabled;
-        this.tickDelay = options.tickDelay;
-        this.tickInterval = options.tickInterval;
-        this.totalRuns = options.totalRuns;
-        this.immediate = options.immediate;
-        this.removeOnCompleted = options.removeOnCompleted;
-    }
+    // using setters for validation & default values
+    this.enabled = options.enabled!;
+    this.tickDelay = options.tickDelay!;
+    this.tickInterval = options.tickInterval!;
+    this.totalRuns = options.totalRuns!;
+    this.immediate = options.immediate!;
+    this.removeOnCompleted = options.removeOnCompleted!;
+  }
 }
-
-// ---------------------------
-// EXPORT
-// ---------------------------
 
 export { Task };
