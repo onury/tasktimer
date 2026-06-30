@@ -1139,3 +1139,98 @@ describe('TaskTimer scheduling & timing details', () => {
       timer.start();
     }));
 });
+
+describe('TaskTimer hardening', () => {
+  it('clamps and sanitizes out-of-range / wrong-typed task options', () => {
+    const t = new Task({ id: 'x', tickInterval: -5, tickDelay: -3, totalRuns: -1, callback: noop });
+    expect(t.tickInterval).toBe(1); // min 1
+    expect(t.tickDelay).toBe(0); // min 0
+    expect(t.totalRuns).toBe(0); // min 0
+
+    // non-finite numbers fall back to their defaults
+    const t2 = new Task({
+      id: 'y',
+      tickInterval: Number.NaN,
+      tickDelay: Number.POSITIVE_INFINITY,
+      callback: noop
+    });
+    expect(t2.tickInterval).toBe(1);
+    expect(t2.tickDelay).toBe(0);
+
+    // wrong-typed booleans coerce to defaults via the setters
+    const t3 = new Task({
+      id: 'z',
+      enabled: 'yes' as any,
+      defer: 1 as any,
+      lead: null as any,
+      callback: noop
+    });
+    expect(t3.enabled).toBe(true);
+    expect(t3.defer).toBe(false);
+    expect(t3.lead).toBe(false);
+  });
+
+  it('clamps the timer interval and ignores non-finite values', () => {
+    expect(new TaskTimer(5).interval).toBe(20); // min 20
+    expect(new TaskTimer(Number.NaN).interval).toBe(1000); // default
+    expect(new TaskTimer(Number.POSITIVE_INFINITY).interval).toBe(1000);
+    const t = new TaskTimer();
+    t.interval = -100;
+    expect(t.interval).toBe(20);
+  });
+
+  it('safely removes a task from within a tick', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(15);
+      let bRuns = 0;
+      timer.add({
+        id: 'a',
+        callback(): void {
+          if (timer.get('b')) timer.remove('b');
+        }
+      });
+      timer.add({
+        id: 'b',
+        callback(): void {
+          bRuns++;
+        }
+      });
+      timer.on(Event.TICK, () => {
+        if (timer.tickCount === 3) {
+          try {
+            expect(timer.get('b')).toBeUndefined();
+            expect(bRuns).toBeLessThanOrEqual(1); // removed on the first tick
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
+
+  it('stopOnCompleted does not stop while an unlimited task remains', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer({ interval: 15, stopOnCompleted: true });
+      let completedFired = false;
+      timer.add({ id: 'limited', totalRuns: 1, callback: noop });
+      timer.add({ id: 'forever', callback: noop }); // unlimited → never completes
+      timer.on(Event.COMPLETED, () => {
+        completedFired = true;
+      });
+      timer.on(Event.TICK, () => {
+        if (timer.tickCount === 4) {
+          try {
+            expect(timer.state).toBe(State.RUNNING); // still running
+            expect(completedFired).toBe(false);
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
+});
