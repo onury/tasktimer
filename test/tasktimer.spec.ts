@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ErrorCode,
   Event,
   type ITaskOptions,
   type ITaskTimerEvent,
   State,
   Task,
-  TaskTimer
+  TaskTimer,
+  TaskTimerError
 } from '../src/index.js';
 
 /**
@@ -168,6 +170,61 @@ describe('TaskTimer exports & defaults', () => {
     expect(timer.interval).toBe(2500);
     expect(timer.precision).toBe(false);
     expect(timer.stopOnCompleted).toBe(true);
+  });
+});
+
+describe('TaskTimerError', () => {
+  it('is an Error, carries a code, and preserves the cause', () => {
+    const cause = new Error('boom');
+    const err = new TaskTimerError('nope', { code: ErrorCode.NO_SUCH_TASK, cause });
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(TaskTimerError);
+    expect(err.name).toBe('TaskTimerError');
+    expect(err.message).toBe('nope');
+    expect(err.code).toBe(ErrorCode.NO_SUCH_TASK);
+    expect(err.cause).toBe(cause);
+  });
+
+  it('throws a coded TaskTimerError from each failure path', () => {
+    const grab = (fn: () => unknown): TaskTimerError => {
+      try {
+        fn();
+      } catch (e) {
+        return e as TaskTimerError;
+      }
+      throw new Error('expected the call to throw');
+    };
+    const timer = new TaskTimer();
+    timer.add({ id: 'dup', callback: noop });
+    const date = Date.now();
+
+    const cases: Array<[() => unknown, ErrorCode]> = [
+      [() => timer.add(null as any), ErrorCode.NO_TASK_PROVIDED],
+      [() => timer.add({ id: 'dup', callback: noop }), ErrorCode.DUPLICATE_TASK_ID],
+      [() => timer.remove('ghost'), ErrorCode.NO_SUCH_TASK],
+      [() => new Task({ callback: noop } as any), ErrorCode.TASK_ID_REQUIRED],
+      [() => new Task({ id: 'x' } as any), ErrorCode.CALLBACK_REQUIRED],
+      [
+        () =>
+          new Task({
+            id: 'x',
+            startDate: new Date(date + 100),
+            stopDate: new Date(date),
+            callback: noop
+          }),
+        ErrorCode.INVALID_DATE_RANGE
+      ],
+      [
+        () => new Task({ id: 'r', callback: noop }).reset({ id: 'other' } as any),
+        ErrorCode.CANNOT_CHANGE_ID
+      ]
+    ];
+
+    for (const [fn, code] of cases) {
+      const err = grab(fn);
+      expect(err).toBeInstanceOf(TaskTimerError);
+      expect(err.code).toBe(code);
+    }
   });
 });
 

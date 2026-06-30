@@ -1,6 +1,8 @@
 // own modules
+import { ErrorCode } from './enums/ErrorCode.js';
 import { Event } from './enums/Event.js';
 import type { TaskTimer } from './TaskTimer.js';
+import { TaskTimerError } from './TaskTimerError.js';
 import type {
   ITaskBaseOptions,
   ITaskOptions,
@@ -232,7 +234,11 @@ class Task {
     this.#state.currentRuns = 0;
     if (options) {
       const { id } = options as ITaskOptions;
-      if (id && id !== this.id) throw new Error('Cannot change ID of a task.');
+      if (id && id !== this.id) {
+        throw new TaskTimerError('Cannot change ID of a task.', {
+          code: ErrorCode.CANNOT_CHANGE_ID
+        });
+      }
       (options as ITaskOptions).id = this.id;
       this.#init(options as ITaskOptions);
     }
@@ -336,15 +342,21 @@ class Task {
    */
   #init(options: ITaskOptions): void {
     if (!options?.id) {
-      throw new Error('A unique task ID is required.');
+      throw new TaskTimerError('A unique task ID is required.', {
+        code: ErrorCode.TASK_ID_REQUIRED
+      });
     }
     if (typeof options.callback !== 'function') {
-      throw new Error('A callback function is required for a task to run.');
+      throw new TaskTimerError('A callback function is required for a task to run.', {
+        code: ErrorCode.CALLBACK_REQUIRED
+      });
     }
     const { startDate, stopDate } = options;
     // Stryker disable next-line all: the `&&` chain's short-circuit is equivalent to `||` here (a single date makes the numeric comparison `>= NaN`, always false).
     if (startDate && stopDate && Number(startDate) >= Number(stopDate)) {
-      throw new Error('Task start date cannot be the same or after stop date.');
+      throw new TaskTimerError('Task start date cannot be the same or after stop date.', {
+        code: ErrorCode.INVALID_DATE_RANGE
+      });
     }
 
     this.#markedCompleted = false;

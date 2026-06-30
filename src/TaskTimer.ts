@@ -1,8 +1,10 @@
 // own modules
 import { EventEmitter } from './core/EventEmitter.js';
+import { ErrorCode } from './enums/ErrorCode.js';
 import { Event } from './enums/Event.js';
 import { State } from './enums/State.js';
 import { Task } from './Task.js';
+import { TaskTimerError } from './TaskTimerError.js';
 import type {
   ITaskOptions,
   ITaskTimerEvent,
@@ -246,7 +248,9 @@ class TaskTimer extends EventEmitter {
     task: Task | ITaskOptions | TaskCallback | Array<Task | ITaskOptions | TaskCallback>
   ): TaskTimer {
     if (!utils.isset(task)) {
-      throw new Error('Either a task, task options or a callback is required.');
+      throw new TaskTimerError('Either a task, task options or a callback is required.', {
+        code: ErrorCode.NO_TASK_PROVIDED
+      });
     }
     for (const item of utils.ensureArray(task)) this.#add(item);
     return this;
@@ -263,7 +267,9 @@ class TaskTimer extends EventEmitter {
     const found = this.get(id);
 
     if (!id || !found) {
-      throw new Error(`No tasks exist with ID: '${id}'.`);
+      throw new TaskTimerError(`No tasks exist with ID: '${id}'.`, {
+        code: ErrorCode.NO_SUCH_TASK
+      });
     }
 
     // decrement completed count first if this is a completed task.
@@ -392,7 +398,9 @@ class TaskTimer extends EventEmitter {
       (options as ITaskOptions).id = this.#getUniqueTaskID();
     }
     if (this.get(options.id!)) {
-      throw new Error(`A task with id '${options.id}' already exists.`);
+      throw new TaskTimerError(`A task with id '${options.id}' already exists.`, {
+        code: ErrorCode.DUPLICATE_TASK_ID
+      });
     }
     const task = options instanceof Task ? options : new Task(options);
     task._setTimer(this);
