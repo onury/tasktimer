@@ -264,8 +264,8 @@ See [CHANGELOG.md](CHANGELOG.md). Migrating from v3? See the [migration notes](C
 ## Other Projects
 
 - [**AccessControl**](https://github.com/onury/accesscontrol) — Role and Attribute based Access Control for Node.js.
-- [**Configuard**](https://github.com/onury/configuard) — Type-safe configuration and environment-variable validation.
-- [**Notation**](https://github.com/onury/notation) — Utility for notating and manipulating JS objects via dot-separated keys.
+- [**Configuard**](https://github.com/onury/configuard) — Turn flat config rows from a database table into a nested, typed configuration object — with `${...}` templating and accessor-based (ABAC) filtering.
+- [**Notation**](https://github.com/onury/notation) — Read, modify, and filter the contents of objects and arrays via dot/bracket notation strings or glob patterns.
 
 ## License
 
