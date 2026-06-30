@@ -293,7 +293,8 @@ class Task {
   #emitError(error: Error): void {
     const event: ITaskTimerEvent = {
       name: Event.TASK_ERROR,
-      source: this,
+      timer: this.#timer,
+      task: this,
       error
     };
     const handled = this.#timer.emit(Event.TASK_ERROR, event);

@@ -5,8 +5,8 @@ import type { EventListener, EventName } from '../types/index.js';
  *  Internal record for a registered listener.
  *  @internal
  */
-interface Handler {
-  fn: EventListener;
+interface Handler<TListener extends EventListener> {
+  fn: TListener;
   context: unknown;
   once: boolean;
 }
@@ -19,13 +19,18 @@ interface Handler {
  *  dependencies. The semantics mirror the common Node/`eventemitter3` API:
  *  listeners fire in insertion order, `once` listeners are removed right before
  *  they run, and `emit` returns whether the event had any listeners.
+ *
+ *  The optional `TListener` type parameter narrows the listener (and, via
+ *  `Parameters<TListener>`, the `emit` arguments) for subclasses — e.g.
+ *  {@link TaskTimer} types it to an `ITaskTimerEvent` listener. It defaults to
+ *  the permissive `EventListener`, so a bare `EventEmitter` is unchanged.
  */
-class EventEmitter {
+class EventEmitter<TListener extends EventListener = EventListener> {
   /**
    *  Registered handlers, keyed by event name.
    *  @internal
    */
-  readonly #events = new Map<EventName, Handler[]>();
+  readonly #events = new Map<EventName, Handler<TListener>[]>();
 
   /**
    *  Returns the list of event names that currently have listeners.
@@ -38,7 +43,7 @@ class EventEmitter {
    *  Returns the listener functions registered for the given event.
    *  @param event - Name of the event.
    */
-  listeners(event: EventName): EventListener[] {
+  listeners(event: EventName): TListener[] {
     const handlers = this.#events.get(event);
     return handlers ? handlers.map((h) => h.fn) : [];
   }
@@ -59,7 +64,7 @@ class EventEmitter {
    *  @param args - Arguments forwarded to each listener.
    *  @returns `true` if the event had listeners, otherwise `false`.
    */
-  emit(event: EventName, ...args: unknown[]): boolean {
+  emit(event: EventName, ...args: Parameters<TListener>): boolean {
     const handlers = this.#events.get(event);
     // empty arrays are never stored — an event key always has ≥ 1 handler.
     if (!handlers) return false;
@@ -79,14 +84,14 @@ class EventEmitter {
    *  @param context - `this` context for the listener. Defaults to the emitter.
    *  @returns The emitter instance for chaining.
    */
-  on(event: EventName, fn: EventListener, context: unknown = this): this {
+  on(event: EventName, fn: TListener, context: unknown = this): this {
     return this.#add(event, fn, context, false);
   }
 
   /**
    *  Alias of {@link EventEmitter.on}.
    */
-  addListener(event: EventName, fn: EventListener, context: unknown = this): this {
+  addListener(event: EventName, fn: TListener, context: unknown = this): this {
     return this.on(event, fn, context);
   }
 
@@ -97,7 +102,7 @@ class EventEmitter {
    *  @param context - `this` context for the listener. Defaults to the emitter.
    *  @returns The emitter instance for chaining.
    */
-  once(event: EventName, fn: EventListener, context: unknown = this): this {
+  once(event: EventName, fn: TListener, context: unknown = this): this {
     return this.#add(event, fn, context, true);
   }
 
@@ -110,7 +115,7 @@ class EventEmitter {
    *  @param once - Only remove one-time listeners.
    *  @returns The emitter instance for chaining.
    */
-  off(event: EventName, fn?: EventListener, context?: unknown, once?: boolean): this {
+  off(event: EventName, fn?: TListener, context?: unknown, once?: boolean): this {
     const handlers = this.#events.get(event);
     if (!handlers) return this;
     if (!fn) {
@@ -134,7 +139,7 @@ class EventEmitter {
   /**
    *  Alias of {@link EventEmitter.off}.
    */
-  removeListener(event: EventName, fn?: EventListener, context?: unknown, once?: boolean): this {
+  removeListener(event: EventName, fn?: TListener, context?: unknown, once?: boolean): this {
     return this.off(event, fn, context, once);
   }
 
@@ -155,8 +160,8 @@ class EventEmitter {
   /**
    *  @internal
    */
-  #add(event: EventName, fn: EventListener, context: unknown, once: boolean): this {
-    const handler: Handler = { fn, context, once };
+  #add(event: EventName, fn: TListener, context: unknown, once: boolean): this {
+    const handler: Handler<TListener> = { fn, context, once };
     const handlers = this.#events.get(event);
     if (handlers) {
       handlers.push(handler);
@@ -169,7 +174,7 @@ class EventEmitter {
   /**
    *  @internal
    */
-  #delete(event: EventName, handler: Handler): void {
+  #delete(event: EventName, handler: Handler<TListener>): void {
     // #delete is only ever called for a handler taken from the live array, so
     // the event key is guaranteed to exist.
     const handlers = this.#events.get(event)!;

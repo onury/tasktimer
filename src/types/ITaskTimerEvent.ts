@@ -1,5 +1,8 @@
 // own modules
+
 import type { Event } from '../enums/Event.js';
+import type { Task } from '../Task.js';
+import type { TaskTimer } from '../TaskTimer.js';
 
 /**
  *  Event object passed to {@link TaskTimer} event listeners.
@@ -10,15 +13,17 @@ interface ITaskTimerEvent {
    */
   name: Event;
   /**
-   *  Object that fired the event — a `TaskTimer` or a `Task` instance.
+   *  The `TaskTimer` that fired the event.
    */
-  source: any;
+  timer: TaskTimer;
   /**
-   *  Payload passed to the listeners, generally the related `Task` instance.
+   *  The related `Task`, when the event concerns one (`task`, `taskAdded`,
+   *  `taskRemoved`, `taskCompleted`, `taskError`). Absent for timer-level events
+   *  such as `tick`, `started` or `completed`.
    */
-  data?: any;
+  task?: Task;
   /**
-   *  Error passed to the listeners, set for `taskError` events.
+   *  The error, set only for `taskError` events.
    */
   error?: Error;
 }

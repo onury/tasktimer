@@ -46,7 +46,7 @@ const DEFAULT_TIMER_OPTIONS: Readonly<ITaskTimerOptions> = Object.freeze({
  *  });
  *  timer.start();
  */
-class TaskTimer extends EventEmitter {
+class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
   /**
    *  Internal state. Paused time is excluded from precision calculations, so the
    *  resume-relative fields are kept separately.
@@ -392,11 +392,11 @@ class TaskTimer extends EventEmitter {
   /**
    *  @internal
    */
-  #emit(type: Event, data?: any): boolean {
+  #emit(type: Event, task?: Task): boolean {
     const event: ITaskTimerEvent = {
       name: type,
-      source: this,
-      data
+      timer: this,
+      task
     };
     return this.emit(type, event);
   }
