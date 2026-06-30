@@ -77,6 +77,8 @@ describe('TaskTimer exports & defaults', () => {
     expect(task.totalRuns).toBe(null);
     expect(task.removeOnCompleted).toBe(false);
     expect(task.defer).toBe(false);
+    expect(task.lead).toBe(false);
+    expect(task.data).toBeUndefined();
     expect(task.currentRuns).toBe(0);
     expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
     expect(task.completed).toBe(false);
@@ -93,6 +95,8 @@ describe('TaskTimer exports & defaults', () => {
       totalRuns: 3,
       removeOnCompleted: true,
       defer: true,
+      lead: true,
+      data: { tag: 'x' },
       callback
     });
     expect(task.enabled).toBe(false);
@@ -101,8 +105,88 @@ describe('TaskTimer exports & defaults', () => {
     expect(task.totalRuns).toBe(3);
     expect(task.removeOnCompleted).toBe(true);
     expect(task.defer).toBe(true);
+    expect(task.lead).toBe(true);
+    expect(task.data).toEqual({ tag: 'x' });
     expect(task.callback).toBe(callback);
   });
+
+  it('carries typed user data on a task (get/set/serialize)', () => {
+    const timer = new TaskTimer();
+    timer.add({ id: 'd', data: { user: 42 }, callback: noop });
+    const task = timer.get<{ user: number }>('d')!;
+    expect(task.data.user).toBe(42);
+    task.data = { user: 7 };
+    expect(task.data.user).toBe(7);
+    // user data is serialized with the task
+    expect(JSON.parse(JSON.stringify(task)).data).toEqual({ user: 7 });
+  });
+
+  it('runs a lead task immediately on start, before the first interval', () => {
+    const timer = new TaskTimer(10_000); // huge interval; a non-lead task would wait 10s
+    let runs = 0;
+    timer.add({
+      id: 'lead',
+      lead: true,
+      callback: (): void => {
+        runs++;
+      }
+    });
+    timer.start();
+    expect(runs).toBe(1); // ran synchronously on the leading edge
+    timer.stop();
+  });
+
+  it('does not lead-run a task while its startDate is still in the future', () => {
+    const timer = new TaskTimer(10_000);
+    let runs = 0;
+    timer.add({
+      id: 'lead',
+      lead: true,
+      startDate: new Date(Date.now() + 60_000),
+      callback: (): void => {
+        runs++;
+      }
+    });
+    timer.start();
+    expect(runs).toBe(0);
+    timer.stop();
+  });
+
+  it('a lead task runs exactly once more than an identical non-lead task', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(20);
+      let leadRuns = 0;
+      let plainRuns = 0;
+      timer.add({
+        id: 'lead',
+        lead: true,
+        callback: (): void => {
+          leadRuns++;
+        }
+      });
+      timer.add({
+        id: 'plain',
+        callback: (): void => {
+          plainRuns++;
+        }
+      });
+      // TICK fires before this tick's tasks run, so at tickCount === 3 both have
+      // run on ticks 1 and 2; the lead task also ran once at start.
+      timer.on(Event.TICK, () => {
+        if (timer.tickCount === 3) {
+          try {
+            expect(plainRuns).toBe(2);
+            expect(leadRuns).toBe(3);
+            expect(leadRuns).toBe(plainRuns + 1); // the extra leading-edge run
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
 
   it('validates Task construction', () => {
     expect(() => new Task(null as any)).toThrow('A unique task ID is required.');

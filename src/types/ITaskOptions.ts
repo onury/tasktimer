@@ -5,12 +5,25 @@ import type { TaskCallback } from './TaskCallback.js';
  *  Base options for a {@link Task}, shared by task creation and
  *  {@link Task.reset}.
  */
-interface ITaskBaseOptions {
+interface ITaskBaseOptions<TData = any> {
   /**
    *  Whether the task is currently enabled. This gives manual control over
    *  execution: while `false`, the task bypasses its callback. Default: `true`.
    */
   enabled?: boolean;
+  /**
+   *  Whether to run the task once immediately when the timer starts (the leading
+   *  edge), in addition to its normal tick schedule — instead of waiting a full
+   *  interval for the first tick. Ignored while a future `startDate` has not been
+   *  reached. Applies on `start()` only. Default: `false`.
+   */
+  lead?: boolean;
+  /**
+   *  Arbitrary user data attached to the task, available as `task.data` in the
+   *  callback and event listeners. Type it via the `TData` parameter, e.g.
+   *  `timer.get<MyType>(id)`. Default: `undefined`.
+   */
+  data?: TData;
   /**
    *  Number of ticks to wait before running the task for the first time.
    *  Default: `0`.
@@ -54,13 +67,13 @@ interface ITaskBaseOptions {
   /**
    *  Callback executed on each run of the task. See {@link TaskCallback}.
    */
-  callback: TaskCallback;
+  callback: TaskCallback<TData>;
 }
 
 /**
  *  Options for a {@link Task}.
  */
-interface ITaskOptions extends ITaskBaseOptions {
+interface ITaskOptions<TData = any> extends ITaskBaseOptions<TData> {
   /**
    *  Unique ID of the task. Required when constructing a `Task` directly; may be
    *  omitted when adding via {@link TaskTimer.add}, in which case a unique

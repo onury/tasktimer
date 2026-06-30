@@ -24,6 +24,7 @@ const DEFAULT_TASK_OPTIONS = Object.freeze({
   startDate: null as number | Date | null,
   stopDate: null as number | Date | null,
   defer: false,
+  lead: false,
   removeOnCompleted: false
 });
 
@@ -46,7 +47,7 @@ const DEFAULT_TASK_OPTIONS = Object.freeze({
  *  });
  *  timer.add(task);
  */
-class Task {
+class Task<TData = any> {
   /**
    *  The owning timer, set by {@link TaskTimer.add}.
    *  @internal
@@ -70,13 +71,13 @@ class Task {
     totalRuns?: number | null;
     startDate?: number | Date | null;
     stopDate?: number | Date | null;
-  } & Omit<ITaskOptions, 'totalRuns' | 'startDate' | 'stopDate'>;
+  } & Omit<ITaskOptions<TData>, 'totalRuns' | 'startDate' | 'stopDate'>;
 
   /**
    *  Creates a new `Task`.
    *  @param options - Task options. A unique `id` and a `callback` are required.
    */
-  constructor(options: ITaskOptions) {
+  constructor(options: ITaskOptions<TData>) {
     this.#init(options);
   }
 
@@ -148,6 +149,29 @@ class Task {
   }
 
   /**
+   *  Whether the task runs once immediately when the timer starts (the leading
+   *  edge), in addition to its normal tick schedule. A future `startDate` still
+   *  defers the first run. Takes effect on `start()` only.
+   */
+  get lead(): boolean {
+    return this.#state.lead!;
+  }
+  set lead(value: boolean) {
+    this.#state.lead = utils.getBool(value, DEFAULT_TASK_OPTIONS.lead);
+  }
+
+  /**
+   *  Arbitrary user data attached to the task, available here and in event
+   *  listeners. Typed via the task's `TData` parameter.
+   */
+  get data(): TData {
+    return this.#state.data as TData;
+  }
+  set data(value: TData) {
+    this.#state.data = value;
+  }
+
+  /**
    *  Number of times the task has run.
    */
   get currentRuns(): number {
@@ -173,7 +197,7 @@ class Task {
   /**
    *  Callback executed on each run.
    */
-  get callback(): TaskCallback {
+  get callback(): TaskCallback<TData> {
     return this.#state.callback;
   }
 
@@ -219,6 +243,19 @@ class Task {
     return tickCount > this.tickDelay && (tickCount - this.tickDelay) % this.tickInterval === 0;
   }
 
+  /**
+   *  Whether the task should run on the timer's leading edge (at `start()`).
+   *  True for a `lead` task whose `startDate` (if any) has been reached.
+   *  @internal
+   */
+  get canRunOnLead(): boolean {
+    if (!this.lead) return false;
+    const { startDate } = this.#state;
+    // Stryker disable next-line all: date gate is wall-clock dependent; covered behaviorally by the lead-with-future-startDate test.
+    if (startDate && Date.now() < Number(startDate)) return false;
+    return true;
+  }
+
   // ---------------------------
   // PUBLIC METHODS
   // ---------------------------
@@ -230,17 +267,17 @@ class Task {
    *  @returns The task instance for chaining.
    *  @throws If `options` tries to change the task `id`.
    */
-  reset(options?: ITaskBaseOptions): Task {
+  reset(options?: ITaskBaseOptions<TData>): Task<TData> {
     this.#state.currentRuns = 0;
     if (options) {
-      const { id } = options as ITaskOptions;
+      const { id } = options as ITaskOptions<TData>;
       if (id && id !== this.id) {
         throw new TaskTimerError('Cannot change ID of a task.', {
           code: ErrorCode.CANNOT_CHANGE_ID
         });
       }
-      (options as ITaskOptions).id = this.id;
-      this.#init(options as ITaskOptions);
+      (options as ITaskOptions<TData>).id = this.id;
+      this.#init(options as ITaskOptions<TData>);
     }
     return this;
   }
@@ -353,7 +390,7 @@ class Task {
    *  Validates and applies the given options.
    *  @internal
    */
-  #init(options: ITaskOptions): void {
+  #init(options: ITaskOptions<TData>): void {
     if (!options?.id) {
       throw new TaskTimerError('A unique task ID is required.', {
         code: ErrorCode.TASK_ID_REQUIRED
@@ -378,6 +415,7 @@ class Task {
       ...DEFAULT_TASK_OPTIONS,
       id: String(options.id),
       callback: options.callback,
+      data: options.data,
       startDate: startDate || null,
       stopDate: stopDate || null
     };
@@ -388,6 +426,7 @@ class Task {
     this.tickInterval = options.tickInterval!;
     this.totalRuns = options.totalRuns!;
     this.defer = options.defer!;
+    this.lead = options.lead!;
     this.removeOnCompleted = options.removeOnCompleted!;
   }
 }

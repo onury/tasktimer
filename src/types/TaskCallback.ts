@@ -20,6 +20,6 @@ import type { Task } from '../Task.js';
  *  // async via Promise
  *  timer.add(task => readFileAsync(path).then(process));
  */
-type TaskCallback = (task: Task, done?: () => void) => void | Promise<unknown>;
+type TaskCallback<TData = any> = (task: Task<TData>, done?: () => void) => void | Promise<unknown>;
 
 export type { TaskCallback };

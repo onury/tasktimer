@@ -247,9 +247,10 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
   /**
    *  Gets the task with the given ID, or `undefined` if not found.
    *  @param id - ID of the task.
+   *  @typeParam TData - Type of the task's `data`, for typing the returned task.
    */
-  get(id: string): Task | undefined {
-    return this.#state.tasks.get(id);
+  get<TData = any>(id: string): Task<TData> | undefined {
+    return this.#state.tasks.get(id) as Task<TData> | undefined;
   }
 
   /**
@@ -311,6 +312,7 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
     this.#markTime();
     this.#state.startTime = Date.now();
     this.#emit(Event.STARTED);
+    this.#runLeadingTasks();
     this.#run();
     return this;
   }
@@ -470,15 +472,33 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
     this.#emit(Event.TICK);
 
     for (const task of tasks.values()) {
-      if (!task.canRunOnTick) continue;
-      // skipped if the task is disabled or already completed.
-      task._run(() => {
-        this.#state.taskRunCount++;
-        this.#emit(Event.TASK, task);
-      });
+      if (task.canRunOnTick) this.#dispatch(task);
     }
 
     this.#run();
+  }
+
+  /**
+   *  Runs every `lead` task once on the timer's leading edge (at `start()`),
+   *  before the first interval elapses.
+   *  @internal
+   */
+  #runLeadingTasks(): void {
+    for (const task of this.#state.tasks.values()) {
+      if (task.canRunOnLead) this.#dispatch(task);
+    }
+  }
+
+  /**
+   *  Runs a single task and accounts for the run. `_run` itself skips a disabled
+   *  or already-completed task.
+   *  @internal
+   */
+  #dispatch(task: Task): void {
+    task._run(() => {
+      this.#state.taskRunCount++;
+      this.#emit(Event.TASK, task);
+    });
   }
 
   /**
