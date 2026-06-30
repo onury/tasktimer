@@ -22,8 +22,17 @@ import HeroTimeline from '../../components/HeroTimeline.astro';
 <HeroTimeline />
 
 ```js
-const timer = new TaskTimer(1000);          // 1s base interval
-timer.add(task => console.log(task.currentRuns)).start();
+import { TaskTimer, Event } from 'tasktimer';
+
+const timer = new TaskTimer(1000);                 // 1s base interval
+
+timer.add(task => console.log(`run #${task.currentRuns}`));
+
+// listen for lifecycle events — every listener gets a typed event
+timer.on(Event.TICK, () => console.log(`tick ${timer.tickCount}`));
+timer.on(Event.TASK, event => console.log(`ran: ${event.task.id}`));
+
+timer.start();
 ```
 
 {/* Feature cards use the shared `.feature-grid` classes from @onury/docs-kit. */}
