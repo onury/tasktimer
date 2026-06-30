@@ -79,9 +79,4 @@ describe('utils', () => {
     // biome-ignore lint/suspicious/noThenProperty: a non-callable then is the point
     expect(utils.isPromise({ then: 1 })).toBe(false);
   });
-
-  it('NODE / BROWSER flags reflect the runtime', () => {
-    expect(utils.NODE).toBe(true);
-    expect(utils.BROWSER).toBe(false);
-  });
 });

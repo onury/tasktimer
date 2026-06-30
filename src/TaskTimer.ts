@@ -62,7 +62,6 @@ class TaskTimer extends EventEmitter {
     stopTime: number;
     completedTaskCount: number;
     resumeTime: number;
-    hrResumeTime: [number, number] | null;
     tickCountAfterResume: number;
   };
 
@@ -136,8 +135,8 @@ class TaskTimer extends EventEmitter {
    *
    *  - The delay between ticks is auto-adjusted when it drifts due to task/CPU
    *    load or clock drift.
-   *  - In Node, it uses `process.hrtime()` high-resolution time, which is not
-   *    subject to clock drift.
+   *  - It uses a monotonic high-resolution clock (`performance.now()`), which is
+   *    not subject to wall-clock/system-clock drift.
    *  - If a tick is significantly late (e.g. a blocking task), it auto-recovers
    *    by running immediate ticks until the time/tick balance is restored.
    *
@@ -453,7 +452,6 @@ class TaskTimer extends EventEmitter {
       stopTime: 0,
       completedTaskCount: 0,
       resumeTime: 0,
-      hrResumeTime: null,
       tickCountAfterResume: 0
     };
     this.#stop();
@@ -484,17 +482,12 @@ class TaskTimer extends EventEmitter {
   }
 
   /**
-   *  Marks the start/resume time, using high-resolution time in Node.
+   *  Marks the start/resume time, using the monotonic high-resolution clock.
    *  @internal
    */
-  // Stryker disable all: high-resolution time source; mutations alter timing precision, not run outcomes (the browser branch is also unreachable in the Node test environment).
+  // Stryker disable all: high-resolution time source; mutations alter timing precision, not run outcomes.
   #markTime(): void {
-    /* istanbul ignore if -- browser-only path, tested separately */
-    if (utils.BROWSER) {
-      this.#state.resumeTime = Date.now();
-    } else {
-      this.#state.hrResumeTime = process.hrtime();
-    }
+    this.#state.resumeTime = performance.now();
   }
   // Stryker restore all
 
@@ -502,12 +495,9 @@ class TaskTimer extends EventEmitter {
    *  Gets the elapsed time (ms) since the last start/resume.
    *  @internal
    */
-  // Stryker disable all: elapsed-time arithmetic; mutations alter timing precision, not run outcomes (the browser branch is also unreachable in the Node test environment).
+  // Stryker disable all: elapsed-time arithmetic; mutations alter timing precision, not run outcomes.
   #getTimeDiff(): number {
-    /* istanbul ignore if -- browser-only path, tested separately */
-    if (utils.BROWSER) return Date.now() - this.#state.resumeTime;
-    const hrDiff = process.hrtime(this.#state.hrResumeTime!);
-    return Math.ceil(hrDiff[0] * 1000 + hrDiff[1] / 1e6);
+    return Math.ceil(performance.now() - this.#state.resumeTime);
   }
   // Stryker restore all
 

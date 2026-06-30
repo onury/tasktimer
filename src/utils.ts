@@ -1,30 +1,10 @@
 const proto = Object.prototype;
 
 /**
- *  Whether the runtime is Node.js (has `process.hrtime` and `setImmediate`).
- *  @internal
- */
-// Stryker disable all: runtime detection — only the Node branch runs under the test environment.
-const NODE =
-  typeof process === 'object' &&
-  typeof process.hrtime === 'function' &&
-  typeof setImmediate === 'function';
-// Stryker restore all
-
-/**
- *  Whether the runtime is a browser (or any non-Node environment).
- *  @internal
- */
-const BROWSER = !NODE;
-
-/**
  *  Small internal helpers shared across the library.
  *  @internal
  */
 const utils = {
-  NODE,
-  BROWSER,
-
   /**
    *  Gets the lower-cased internal `[[Class]]` of a value, e.g. `'array'`,
    *  `'object'`, `'date'`, `'promise'`.
@@ -70,12 +50,13 @@ const utils = {
 
   /**
    *  Schedules `cb` to run after the current event-loop turn. Uses
-   *  `setImmediate` in Node and a `setTimeout(…, 0)` fallback elsewhere.
+   *  `setImmediate` where available (Node) and a `setTimeout(…, 0)` fallback
+   *  elsewhere (browsers).
    */
   setImmediate(cb: (...args: any[]) => void, ...args: any[]): any {
-    /* istanbul ignore if -- browser-only path, tested separately */
+    /* istanbul ignore if -- browser-only fallback, tested separately */
     // Stryker disable next-line all: browser-only fallback, unreachable in the Node test environment.
-    if (utils.BROWSER) return setTimeout(() => cb(...args), 0);
+    if (typeof setImmediate !== 'function') return setTimeout(() => cb(...args), 0);
     return setImmediate(cb, ...args);
   },
 
@@ -83,9 +64,9 @@ const utils = {
    *  Clears a handle created by {@link utils.setImmediate}.
    */
   clearImmediate(id: any): void {
-    /* istanbul ignore if -- browser-only path, tested separately */
+    /* istanbul ignore if -- browser-only fallback, tested separately */
     // Stryker disable next-line all: browser-only fallback, unreachable in the Node test environment.
-    if (utils.BROWSER) return clearTimeout(id);
+    if (typeof clearImmediate !== 'function') return clearTimeout(id);
     clearImmediate(id);
   },
 
