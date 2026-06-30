@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { type ITaskOptions, type ITaskTimerEvent, Task, TaskTimer } from '../src/index.js';
+import {
+  Event,
+  type ITaskOptions,
+  type ITaskTimerEvent,
+  State,
+  Task,
+  TaskTimer
+} from '../src/index.js';
 
 /**
  *  Blocks the event loop synchronously for the given duration.
@@ -23,11 +30,11 @@ function getPromise(value: unknown, delay = 50): Promise<unknown> {
 
 const noop = (): void => undefined;
 
-describe('TaskTimer namespace & defaults', () => {
-  it('exposes State, Event and Task', () => {
-    expect(TaskTimer.State).toEqual(expect.any(Object));
-    expect(TaskTimer.Event).toEqual(expect.any(Object));
-    expect(TaskTimer.Task).toBe(Task);
+describe('TaskTimer exports & defaults', () => {
+  it('exposes State, Event and Task as named exports', () => {
+    expect(State).toEqual(expect.any(Object));
+    expect(Event).toEqual(expect.any(Object));
+    expect(typeof Task).toBe('function'); // the Task class
   });
 
   it('applies timer defaults and option overrides', () => {
@@ -122,7 +129,7 @@ describe('TaskTimer namespace & defaults', () => {
     const timer = new TaskTimer();
     timer.add({ id: 'task2', callback: noop }); // taskCount = 1 → next auto would be "task2"
     timer.add(noop); // collides with "task2" → "task3"
-    expect(timer.get('task3')).not.toBe(null);
+    expect(timer.get('task3')).toBeDefined();
     expect(timer.taskCount).toBe(2);
   });
 
@@ -139,15 +146,15 @@ describe('TaskTimer namespace & defaults', () => {
     expect(timer.tasks.map((t) => t.id)).toEqual(['b']);
   });
 
-  it('get() returns null for an unknown id', () => {
+  it('get() returns undefined for an unknown id', () => {
     const timer = new TaskTimer();
-    expect(timer.get('nope')).toBe(null);
+    expect(timer.get('nope')).toBeUndefined();
   });
 
   it('preserves an explicit id and only auto-generates when missing', () => {
     const timer = new TaskTimer();
     timer.add({ id: 'explicit', tickInterval: 4, callback: noop });
-    expect(timer.get('explicit')).not.toBe(null);
+    expect(timer.get('explicit')).toBeDefined();
     expect(timer.get('explicit')!.tickInterval).toBe(4);
     // a Task instance keeps its own id (no overwrite/auto-generation)
     const instance = new Task({ id: 'inst', callback: noop });
@@ -167,23 +174,23 @@ describe('TaskTimer namespace & defaults', () => {
 describe('TaskTimer state machine', () => {
   it('transitions through start/pause/resume/stop/reset', () => {
     const timer = new TaskTimer(50);
-    expect(timer.state).toBe(TaskTimer.State.IDLE);
+    expect(timer.state).toBe(State.IDLE);
     // pause/stop are no-ops while not running
-    expect(timer.pause().state).toBe(TaskTimer.State.IDLE);
-    expect(timer.stop().state).toBe(TaskTimer.State.IDLE);
+    expect(timer.pause().state).toBe(State.IDLE);
+    expect(timer.stop().state).toBe(State.IDLE);
     // resume while idle starts the timer
     timer.resume();
-    expect(timer.state).toBe(TaskTimer.State.RUNNING);
+    expect(timer.state).toBe(State.RUNNING);
     timer.pause();
-    expect(timer.state).toBe(TaskTimer.State.PAUSED);
+    expect(timer.state).toBe(State.PAUSED);
     // resume is a no-op unless paused/idle; here it resumes
     timer.resume();
-    expect(timer.state).toBe(TaskTimer.State.RUNNING);
+    expect(timer.state).toBe(State.RUNNING);
     // resume while already running is a no-op
     timer.resume();
-    expect(timer.state).toBe(TaskTimer.State.RUNNING);
+    expect(timer.state).toBe(State.RUNNING);
     timer.stop();
-    expect(timer.state).toBe(TaskTimer.State.STOPPED);
+    expect(timer.state).toBe(State.STOPPED);
     expect(timer.time.stopped).not.toBe(0);
     // a stopped timer's elapsed is frozen at (stopped - started) and small here
     const elapsed = timer.time.elapsed;
@@ -193,7 +200,7 @@ describe('TaskTimer state machine', () => {
     block(15);
     expect(timer.time.elapsed).toBe(elapsed); // does not keep counting after stop
     timer.reset();
-    expect(timer.state).toBe(TaskTimer.State.IDLE);
+    expect(timer.state).toBe(State.IDLE);
   });
 });
 
@@ -231,7 +238,7 @@ describe('TaskTimer task management', () => {
         callback(): void {
           try {
             expect(timer.tickCount).toBe(5);
-            expect(timer.get('remove-check')).not.toBe(null);
+            expect(timer.get('remove-check')).toBeDefined();
           } catch (err) {
             reject(err);
           }
@@ -248,15 +255,15 @@ describe('TaskTimer task management', () => {
           try {
             expect(timer.tickCount).toBe(7);
             // remove-check removed itself on completion
-            expect(timer.get('remove-check')).toBe(null);
+            expect(timer.get('remove-check')).toBeUndefined();
             expect(timer.taskCount).toBe(2);
             timer.remove('heartbeat');
             expect(timer.taskCount).toBe(1);
             timer.stop();
-            expect(timer.state).toBe(TaskTimer.State.STOPPED);
+            expect(timer.state).toBe(State.STOPPED);
             timer.reset();
             expect(timer.taskCount).toBe(0);
-            expect(timer.state).toBe(TaskTimer.State.IDLE);
+            expect(timer.state).toBe(State.IDLE);
             resolve();
           } catch (err) {
             reject(err);
@@ -296,71 +303,71 @@ describe('TaskTimer events', () => {
   it('emits the full lifecycle of events', () =>
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(40);
-      const seen: TaskTimer.Event[] = [];
+      const seen: Event[] = [];
       const taskComp: ITaskOptions = { id: 'comp', totalRuns: 2, callback: noop };
       const autoTaskID = 'task2';
 
       timer
-        .on(TaskTimer.Event.STARTED, (e: ITaskTimerEvent) => {
+        .on(Event.STARTED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect(e.source).toBe(timer);
         })
-        .on(TaskTimer.Event.TICK, (e: ITaskTimerEvent) => {
+        .on(Event.TICK, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect(e.data).toBeUndefined();
           if (timer.tickCount === 2) timer.add(taskComp);
           if (timer.tickCount === 3) timer.add(noop);
         })
-        .on(TaskTimer.Event.TASK_ADDED, (e: ITaskTimerEvent) => {
+        .on(Event.TASK_ADDED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect(e.data instanceof Task).toBe(true);
         })
-        .on(TaskTimer.Event.TASK, (e: ITaskTimerEvent) => {
+        .on(Event.TASK, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect(e.data instanceof Task).toBe(true);
         })
-        .on(TaskTimer.Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+        .on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect((e.data as Task).id).toBe(taskComp.id);
           timer.remove(autoTaskID);
         })
-        .on(TaskTimer.Event.TASK_REMOVED, (e: ITaskTimerEvent) => {
+        .on(Event.TASK_REMOVED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           expect((e.data as Task).id).toBe(autoTaskID);
           timer.pause();
         })
-        .on(TaskTimer.Event.PAUSED, (e: ITaskTimerEvent) => {
+        .on(Event.PAUSED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           timer.resume();
         })
-        .on(TaskTimer.Event.RESUMED, (e: ITaskTimerEvent) => {
+        .on(Event.RESUMED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           timer.stop();
         })
-        .on(TaskTimer.Event.STOPPED, (e: ITaskTimerEvent) => {
+        .on(Event.STOPPED, (e: ITaskTimerEvent) => {
           seen.push(e.name);
           timer.reset();
         })
         // a second STOPPED listener
-        .on(TaskTimer.Event.STOPPED, () => seen.push(TaskTimer.Event.STOPPED))
-        .on(TaskTimer.Event.RESET, (e: ITaskTimerEvent) => {
+        .on(Event.STOPPED, () => seen.push(Event.STOPPED))
+        .on(Event.RESET, (e: ITaskTimerEvent) => {
           try {
             seen.push(e.name);
             expect(timer.runCount).toBe(2);
             for (const name of [
-              TaskTimer.Event.STARTED,
-              TaskTimer.Event.TICK,
-              TaskTimer.Event.TASK_ADDED,
-              TaskTimer.Event.TASK,
-              TaskTimer.Event.TASK_COMPLETED,
-              TaskTimer.Event.TASK_REMOVED,
-              TaskTimer.Event.PAUSED,
-              TaskTimer.Event.RESUMED,
-              TaskTimer.Event.RESET
+              Event.STARTED,
+              Event.TICK,
+              Event.TASK_ADDED,
+              Event.TASK,
+              Event.TASK_COMPLETED,
+              Event.TASK_REMOVED,
+              Event.PAUSED,
+              Event.RESUMED,
+              Event.RESET
             ]) {
               expect(seen).toContain(name);
             }
-            expect(timer.listenerCount(TaskTimer.Event.STOPPED)).toBe(2);
+            expect(timer.listenerCount(Event.STOPPED)).toBe(2);
             resolve();
           } catch (err) {
             reject(err);
@@ -368,7 +375,7 @@ describe('TaskTimer events', () => {
         });
 
       timer.start();
-      expect(timer.state).toBe(TaskTimer.State.RUNNING);
+      expect(timer.state).toBe(State.RUNNING);
     }));
 
   it('stops automatically when all tasks complete (stopOnCompleted)', () =>
@@ -379,9 +386,9 @@ describe('TaskTimer events', () => {
         { totalRuns: 4, callback: noop }
       ]);
       expect(timer.taskCount).toBe(2);
-      timer.on(TaskTimer.Event.STOPPED, () => {
+      timer.on(Event.STOPPED, () => {
         try {
-          expect(timer.state).toBe(TaskTimer.State.STOPPED);
+          expect(timer.state).toBe(State.STOPPED);
           expect(timer.taskRunCount).toBe(6);
           expect(timer.runCount).toBe(1);
           resolve();
@@ -427,7 +434,7 @@ describe('Task scheduling by date', () => {
       expect(task.completed).toBe(false);
       expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
 
-      timer.on(TaskTimer.Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
         const t = e.data as Task;
         try {
           expect(t.completed).toBe(true);
@@ -450,7 +457,7 @@ describe('Task reset & serialization', () => {
       const task = new Task({ id: 'r', tickInterval: 1, totalRuns: 3, callback: noop });
       timer.add(task);
 
-      timer.on(TaskTimer.Event.TICK, () => {
+      timer.on(Event.TICK, () => {
         try {
           if (timer.tickCount === 3) {
             expect(task.currentRuns).toBe(2);
@@ -463,7 +470,7 @@ describe('Task reset & serialization', () => {
           reject(err);
         }
       });
-      timer.on(TaskTimer.Event.TASK_COMPLETED, () => {
+      timer.on(Event.TASK_COMPLETED, () => {
         try {
           expect(task.totalRuns).toBe(2);
           expect(task.currentRuns).toBe(2);
@@ -521,7 +528,7 @@ describe('Task callbacks', () => {
         new Task({ id: 'disabled', enabled: false, tickDelay: 2, totalRuns: 1, callback: noop })
       );
 
-      timer.on(TaskTimer.Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
         const task = e.data as Task;
         if (task.id === 'promise') {
           try {
@@ -555,7 +562,7 @@ describe('Task callbacks', () => {
         }
       });
       timer.add(task);
-      timer.on(TaskTimer.Event.TASK_ERROR, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_ERROR, (e: ITaskTimerEvent) => {
         try {
           expect(e.source).toBe(task);
           expect(e.error).toBe(taskError);
@@ -578,7 +585,7 @@ describe('Task callbacks', () => {
         callback: (): Promise<unknown> => getPromise(taskError, 15)
       });
       timer.add(task);
-      timer.on(TaskTimer.Event.TASK_ERROR, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_ERROR, (e: ITaskTimerEvent) => {
         try {
           expect(e.error).toBe(taskError);
           timer.stop();
@@ -601,7 +608,7 @@ describe('TaskTimer precision', () => {
           block(60);
         }
       });
-      timer.on(TaskTimer.Event.STOPPED, () => {
+      timer.on(Event.STOPPED, () => {
         try {
           expect(timer.taskRunCount).toBe(3);
           resolve();
@@ -628,14 +635,14 @@ describe('TaskTimer precision', () => {
           if (n !== 3 && n !== 5) block(interval + 30);
         }
       });
-      timer.on(TaskTimer.Event.COMPLETED, () => {
+      timer.on(Event.COMPLETED, () => {
         try {
           expect(timer.taskRunCount).toBe(totalRuns);
         } catch (err) {
           reject(err);
         }
       });
-      timer.on(TaskTimer.Event.STOPPED, () => {
+      timer.on(Event.STOPPED, () => {
         try {
           // removeOnCompleted removes the task after stop() returns, so it is
           // still present while the STOPPED event fires.
@@ -669,7 +676,7 @@ describe('TaskTimer scheduling & timing details', () => {
           }
         }
       });
-      timer.on(TaskTimer.Event.STOPPED, () => resolve());
+      timer.on(Event.STOPPED, () => resolve());
       timer.start();
     }));
 
@@ -678,7 +685,7 @@ describe('TaskTimer scheduling & timing details', () => {
       const interval = 40;
       const timer = new TaskTimer({ interval, stopOnCompleted: true });
       timer.add({ id: 'm', tickInterval: 1, totalRuns: 3, callback: noop });
-      timer.on(TaskTimer.Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
         const t = (e.data as Task).time;
         try {
           // ~2 intervals between first and last of 3 runs → elapsed clearly > 0
@@ -700,7 +707,7 @@ describe('TaskTimer scheduling & timing details', () => {
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(30);
       timer.add({ id: 'r', tickInterval: 1, callback: noop }); // unlimited → never completes
-      timer.on(TaskTimer.Event.TICK, () => {
+      timer.on(Event.TICK, () => {
         try {
           if (timer.tickCount === 2) {
             const t = timer.get('r')!.time;
@@ -721,10 +728,10 @@ describe('TaskTimer scheduling & timing details', () => {
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(30);
       timer.add({ id: 't', callback: noop });
-      timer.on(TaskTimer.Event.TICK, () => {
+      timer.on(Event.TICK, () => {
         try {
           if (timer.tickCount === 2) {
-            expect(timer.state).toBe(TaskTimer.State.RUNNING);
+            expect(timer.state).toBe(State.RUNNING);
             expect(timer.time.stopped).toBe(0);
             // elapsed is measured live (not frozen) while running
             expect(timer.time.elapsed).toBeGreaterThan(0);
@@ -758,7 +765,7 @@ describe('TaskTimer scheduling & timing details', () => {
           order.push('sync');
         }
       });
-      timer.on(TaskTimer.Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
         if ((e.data as Task).id === 'imm') {
           try {
             expect(order).toEqual(['sync', 'imm']);
@@ -782,7 +789,7 @@ describe('TaskTimer scheduling & timing details', () => {
         totalRuns: 1,
         callback: (_t: Task, _done?: () => void): void => undefined
       });
-      timer.on(TaskTimer.Event.TASK_COMPLETED, () => {
+      timer.on(Event.TASK_COMPLETED, () => {
         completed = true;
       });
       timer.start();
@@ -801,14 +808,14 @@ describe('TaskTimer scheduling & timing details', () => {
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(30);
       timer.add({ id: 't', callback: noop });
-      timer.on(TaskTimer.Event.TICK, () => {
+      timer.on(Event.TICK, () => {
         if (timer.tickCount === 2) {
           timer.stop();
           const frozen = timer.tickCount;
           setTimeout(() => {
             try {
               expect(timer.tickCount).toBe(frozen);
-              expect(timer.state).toBe(TaskTimer.State.STOPPED);
+              expect(timer.state).toBe(State.STOPPED);
               resolve();
             } catch (err) {
               reject(err);
@@ -824,7 +831,7 @@ describe('TaskTimer scheduling & timing details', () => {
       const timer = new TaskTimer(30); // stopOnCompleted defaults to false
       let completedAt = 0;
       timer.add({ id: 'one', tickInterval: 1, totalRuns: 1, callback: noop });
-      timer.on(TaskTimer.Event.COMPLETED, () => {
+      timer.on(Event.COMPLETED, () => {
         completedAt = timer.tickCount;
       });
       timer.start();
@@ -832,7 +839,7 @@ describe('TaskTimer scheduling & timing details', () => {
       setTimeout(() => {
         try {
           expect(completedAt).toBeGreaterThan(0);
-          expect(timer.state).toBe(TaskTimer.State.RUNNING);
+          expect(timer.state).toBe(State.RUNNING);
           expect(timer.tickCount).toBeGreaterThan(completedAt);
           timer.stop();
           resolve();
@@ -855,7 +862,7 @@ describe('TaskTimer scheduling & timing details', () => {
         callback: noop
       });
       timer.add({ id: 'b', tickInterval: 1, totalRuns: 3, callback: noop });
-      timer.on(TaskTimer.Event.COMPLETED, () => {
+      timer.on(Event.COMPLETED, () => {
         try {
           expect(timer.taskRunCount).toBe(4);
           resolve();

@@ -1,9 +1,8 @@
 // own modules
 import { EventEmitter } from './core/EventEmitter.js';
 import { Event } from './enums/Event.js';
-import * as enums from './enums/index.js';
 import { State } from './enums/State.js';
-import { Task as TaskClass } from './Task.js';
+import { Task } from './Task.js';
 import type {
   ITaskOptions,
   ITaskTimerEvent,
@@ -33,7 +32,7 @@ const DEFAULT_TIMER_OPTIONS: Readonly<ITaskTimerOptions> = Object.freeze({
  *
  *  @example
  *  const timer = new TaskTimer(1000); // 1s base interval
- *  timer.on(TaskTimer.Event.TICK, () => console.log(timer.tickCount));
+ *  timer.on(Event.TICK, () => console.log(timer.tickCount));
  *  timer.add({
  *    id: 'heartbeat',
  *    tickInterval: 5, // every 5 ticks
@@ -53,7 +52,7 @@ class TaskTimer extends EventEmitter {
   #state!: {
     opts: ITaskTimerOptions;
     state: State;
-    tasks: { [k: string]: TaskClass };
+    tasks: Map<string, Task>;
     tickCount: number;
     taskRunCount: number;
     startTime: number;
@@ -91,7 +90,7 @@ class TaskTimer extends EventEmitter {
    *
    *  @example
    *  const timer = new TaskTimer(1000);
-   *  timer.on(TaskTimer.Event.TICK, () => {
+   *  timer.on(Event.TICK, () => {
    *    console.log('tick:', timer.tickCount, 'elapsed:', timer.time.elapsed);
    *  });
    *  timer.add(task => console.log(task.currentRuns)).start();
@@ -161,7 +160,7 @@ class TaskTimer extends EventEmitter {
   }
 
   /**
-   *  Current state of the timer. See {@link TaskTimer.State}.
+   *  Current state of the timer. See {@link State}.
    */
   get state(): State {
     return this.#state.state;
@@ -198,7 +197,7 @@ class TaskTimer extends EventEmitter {
    *  removed when the timer is reset.
    */
   get taskCount(): number {
-    return Object.keys(this.#state.tasks).length;
+    return this.#state.tasks.size;
   }
 
   /**
@@ -206,8 +205,8 @@ class TaskTimer extends EventEmitter {
    *  via `timer.tasks.map(task => task.id)`. Use {@link TaskTimer.get} for a
    *  single lookup by ID.
    */
-  get tasks(): TaskClass[] {
-    return Object.values(this.#state.tasks);
+  get tasks(): Task[] {
+    return [...this.#state.tasks.values()];
   }
 
   /**
@@ -229,11 +228,11 @@ class TaskTimer extends EventEmitter {
   // ---------------------------
 
   /**
-   *  Gets the task with the given ID, or `null` if not found.
+   *  Gets the task with the given ID, or `undefined` if not found.
    *  @param id - ID of the task.
    */
-  get(id: string): TaskClass | null {
-    return this.#state.tasks[id] || null;
+  get(id: string): Task | undefined {
+    return this.#state.tasks.get(id);
   }
 
   /**
@@ -244,7 +243,7 @@ class TaskTimer extends EventEmitter {
    *  @throws If a task callback is missing, or a task with the same ID exists.
    */
   add(
-    task: TaskClass | ITaskOptions | TaskCallback | Array<TaskClass | ITaskOptions | TaskCallback>
+    task: Task | ITaskOptions | TaskCallback | Array<Task | ITaskOptions | TaskCallback>
   ): TaskTimer {
     if (!utils.isset(task)) {
       throw new Error('Either a task, task options or a callback is required.');
@@ -259,7 +258,7 @@ class TaskTimer extends EventEmitter {
    *  @returns The timer instance for chaining.
    *  @throws If no task exists with the given ID.
    */
-  remove(task: string | TaskClass): TaskTimer {
+  remove(task: string | Task): TaskTimer {
     const id: string = typeof task === 'string' ? task : task.id;
     const found = this.get(id);
 
@@ -271,7 +270,7 @@ class TaskTimer extends EventEmitter {
     // Stryker disable next-line all: guard conditions only diverge for remove-sequences (non-completed / zero-count) that leave no observable accounting difference in reachable states.
     if (found.completed && this.#state.completedTaskCount > 0) this.#state.completedTaskCount--;
 
-    delete this.#state.tasks[id];
+    this.#state.tasks.delete(id);
     this.#emit(Event.TASK_REMOVED, found);
     return this;
   }
@@ -359,7 +358,7 @@ class TaskTimer extends EventEmitter {
    *  Called by a {@link Task} when it has completed all of its runs.
    *  @internal
    */
-  _taskCompleted(task: TaskClass): void {
+  _taskCompleted(task: Task): void {
     this.#state.completedTaskCount++;
     this.#emit(Event.TASK_COMPLETED, task);
     if (this.#state.completedTaskCount === this.taskCount) {
@@ -385,7 +384,7 @@ class TaskTimer extends EventEmitter {
    *  Adds a single task to the timer.
    *  @internal
    */
-  #add(options: TaskClass | ITaskOptions | TaskCallback): TaskTimer {
+  #add(options: Task | ITaskOptions | TaskCallback): TaskTimer {
     if (typeof options === 'function') {
       options = { callback: options };
     }
@@ -395,9 +394,9 @@ class TaskTimer extends EventEmitter {
     if (this.get(options.id!)) {
       throw new Error(`A task with id '${options.id}' already exists.`);
     }
-    const task = options instanceof TaskClass ? options : new TaskClass(options);
+    const task = options instanceof Task ? options : new Task(options);
     task._setTimer(this);
-    this.#state.tasks[task.id] = task;
+    this.#state.tasks.set(task.id, task);
     this.#emit(Event.TASK_ADDED, task);
     return this;
   }
@@ -423,7 +422,7 @@ class TaskTimer extends EventEmitter {
     this.#state = {
       opts: (this.#state || ({} as any)).opts,
       state: State.IDLE,
-      tasks: {},
+      tasks: new Map(),
       tickCount: 0,
       taskRunCount: 0,
       startTime: 0,
@@ -448,8 +447,7 @@ class TaskTimer extends EventEmitter {
     this.#state.tickCountAfterResume++;
     this.#emit(Event.TICK);
 
-    for (const id in tasks) {
-      const task = tasks[id];
+    for (const task of tasks.values()) {
       if (!task.canRunOnTick) continue;
       // skipped if the task is disabled or already completed.
       task._run(() => {
@@ -527,31 +525,6 @@ class TaskTimer extends EventEmitter {
     }
     return id;
   }
-}
-
-// ---------------------------
-// NAMESPACE (backward-compatible API surface)
-// ---------------------------
-
-/* istanbul ignore next -- namespace-merge init branch emitted by tsc */
-namespace TaskTimer {
-  /**
-   *  The {@link Task} class.
-   */
-  export const Task = TaskClass;
-  export type Task = TaskClass;
-
-  /**
-   *  The {@link State} enum of timer states.
-   */
-  export const State = enums.State;
-  export type State = enums.State;
-
-  /**
-   *  The {@link Event} enum of timer event types.
-   */
-  export const Event = enums.Event;
-  export type Event = enums.Event;
 }
 
 export { TaskTimer };
