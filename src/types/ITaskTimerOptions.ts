@@ -21,6 +21,15 @@ interface ITaskTimerOptions {
    *  `stopDate` configured. Default: `false`.
    */
   stopOnCompleted?: boolean;
+  /**
+   *  Whether a task error with no `taskError` listener is swallowed silently.
+   *  When `false`, such an unhandled error is surfaced (re-thrown on the next
+   *  event-loop turn as a {@link TaskTimerError} with the original on `cause`)
+   *  instead of vanishing — the timer keeps running either way. A `taskError`
+   *  listener always takes precedence; a handled error is never surfaced.
+   *  Default: `true`.
+   */
+  silentErrors?: boolean;
 }
 
 export type { ITaskTimerOptions };

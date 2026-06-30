@@ -44,12 +44,19 @@ describe('TaskTimer exports & defaults', () => {
     expect(timer.interval).toBe(1000);
     expect(timer.precision).toBe(true);
     expect(timer.stopOnCompleted).toBe(false);
+    expect(timer.silentErrors).toBe(true);
     expect(timer.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
 
-    timer = new TaskTimer({ interval: 2500, precision: false, stopOnCompleted: true });
+    timer = new TaskTimer({
+      interval: 2500,
+      precision: false,
+      stopOnCompleted: true,
+      silentErrors: false
+    });
     expect(timer.interval).toBe(2500);
     expect(timer.precision).toBe(false);
     expect(timer.stopOnCompleted).toBe(true);
+    expect(timer.silentErrors).toBe(false);
 
     // interval below the minimum is clamped
     expect(new TaskTimer(5).interval).toBe(20);
@@ -647,6 +654,65 @@ describe('Task callbacks', () => {
           resolve();
         } catch (err) {
           reject(err);
+        }
+      });
+      timer.start();
+    }));
+
+  it('swallows an unhandled task error by default (silentErrors true)', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(20); // silentErrors defaults to true
+      let runs = 0;
+      // throws, with no taskError listener — the error must NOT surface and the
+      // timer must keep ticking.
+      timer.add({
+        id: 'quiet',
+        callback(): void {
+          runs++;
+          throw new Error('quiet');
+        }
+      });
+      timer.on(Event.TICK, () => {
+        if (timer.tickCount === 2) {
+          try {
+            expect(runs).toBeGreaterThanOrEqual(1); // it ran and threw, silently
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
+
+  it('surfaces an unhandled task error as a TaskTimerError when silentErrors is false', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer({ interval: 20, silentErrors: false });
+      const original = new Error('kaboom');
+      let thrown = false;
+      // throw exactly once, with no taskError listener → re-thrown on the next
+      // turn as an uncaught exception. Capture it, then restore vitest's handlers.
+      timer.add({
+        id: 'boom',
+        callback(): void {
+          if (thrown) return;
+          thrown = true;
+          throw original;
+        }
+      });
+      const prev = process.listeners('uncaughtException');
+      process.removeAllListeners('uncaughtException');
+      process.once('uncaughtException', (err) => {
+        for (const l of prev) process.on('uncaughtException', l as (e: Error) => void);
+        try {
+          timer.stop();
+          expect(err).toBeInstanceOf(TaskTimerError);
+          expect((err as TaskTimerError).code).toBe(ErrorCode.TASK_ERROR);
+          expect((err as TaskTimerError).cause).toBe(original);
+          resolve();
+        } catch (e) {
+          reject(e);
         }
       });
       timer.start();

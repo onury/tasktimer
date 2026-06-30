@@ -296,7 +296,19 @@ class Task {
       source: this,
       error
     };
-    this.#timer.emit(Event.TASK_ERROR, event);
+    const handled = this.#timer.emit(Event.TASK_ERROR, event);
+    // With no taskError listener and silentErrors disabled, surface the failure
+    // (re-thrown on the next turn, browser-safe via utils.setImmediate) rather
+    // than swallowing it — the running timer loop itself is left undisturbed.
+    if (!handled && !this.#timer.silentErrors) {
+      const surfaced = new TaskTimerError(`Task '${this.id}' failed.`, {
+        code: ErrorCode.TASK_ERROR,
+        cause: error
+      });
+      utils.setImmediate(() => {
+        throw surfaced;
+      });
+    }
   }
 
   /**

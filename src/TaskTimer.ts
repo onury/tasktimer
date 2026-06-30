@@ -21,7 +21,8 @@ import { utils } from './utils.js';
 const DEFAULT_TIMER_OPTIONS: Readonly<ITaskTimerOptions> = Object.freeze({
   interval: 1000,
   precision: true,
-  stopOnCompleted: false
+  stopOnCompleted: false,
+  silentErrors: true
 });
 
 /**
@@ -106,6 +107,7 @@ class TaskTimer extends EventEmitter {
     this.interval = opts.interval!;
     this.precision = opts.precision!;
     this.stopOnCompleted = opts.stopOnCompleted!;
+    this.silentErrors = opts.silentErrors!;
   }
 
   // ---------------------------
@@ -159,6 +161,20 @@ class TaskTimer extends EventEmitter {
   }
   set stopOnCompleted(value: boolean) {
     this.#state.opts.stopOnCompleted = utils.getBool(value, DEFAULT_TIMER_OPTIONS.stopOnCompleted!);
+  }
+
+  /**
+   *  Whether a task error with no `taskError` listener is swallowed silently.
+   *  When `false`, such an unhandled error is surfaced (re-thrown on the next
+   *  event-loop turn as a {@link TaskTimerError}, with the original on `cause`)
+   *  instead of vanishing — the timer keeps running either way. A `taskError`
+   *  listener always takes precedence; a handled error is never surfaced.
+   */
+  get silentErrors(): boolean {
+    return this.#state.opts.silentErrors!;
+  }
+  set silentErrors(value: boolean) {
+    this.#state.opts.silentErrors = utils.getBool(value, DEFAULT_TIMER_OPTIONS.silentErrors!);
   }
 
   /**

@@ -30,7 +30,13 @@ enum ErrorCode {
   /**
    *  {@link Task.reset} was asked to change the task `id`, which is immutable.
    */
-  CANNOT_CHANGE_ID = 'CANNOT_CHANGE_ID'
+  CANNOT_CHANGE_ID = 'CANNOT_CHANGE_ID',
+  /**
+   *  A task's callback threw or rejected and the error went unhandled (no
+   *  `taskError` listener) while the timer's `silentErrors` is `false`. The
+   *  original error is on `cause`.
+   */
+  TASK_ERROR = 'TASK_ERROR'
 }
 
 export { ErrorCode };
