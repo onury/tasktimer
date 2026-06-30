@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ErrorCode,
@@ -262,6 +262,12 @@ describe('TaskTimer exports & defaults', () => {
     expect(timer.precision).toBe(false);
     expect(timer.stopOnCompleted).toBe(true);
   });
+
+  it('totalRuns is honestly number | null (null when unset or non-finite)', () => {
+    expect(new Task({ id: 'a', callback: noop }).totalRuns).toBe(null);
+    expect(new Task({ id: 'b', totalRuns: Number.NaN, callback: noop }).totalRuns).toBe(null);
+    expect(new Task({ id: 'c', totalRuns: 3, callback: noop }).totalRuns).toBe(3);
+  });
 });
 
 describe('TaskTimerError', () => {
@@ -367,7 +373,7 @@ describe('TaskTimer task management', () => {
           try {
             expect(task.id).toBe('heartbeat');
             expect(timer.tickCount % 2).toBe(0);
-            expect(task.currentRuns).toBeLessThanOrEqual(task.totalRuns);
+            expect(task.currentRuns).toBeLessThanOrEqual(task.totalRuns!);
             expect(timer.time.stopped).toBe(0);
           } catch (err) {
             reject(err);
@@ -803,6 +809,59 @@ describe('Task callbacks', () => {
       });
       timer.start();
     }));
+
+  it('counts an errored run toward totalRuns instead of running forever', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(15);
+      let runs = 0;
+      // throws every run; with no taskError listener the errors are swallowed
+      // (silentErrors defaults true), but the runs must still honor totalRuns.
+      timer.add({
+        id: 'boom',
+        totalRuns: 2,
+        callback(): void {
+          runs++;
+          throw new Error('always');
+        }
+      });
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+        try {
+          expect(e.task!.id).toBe('boom');
+          expect(runs).toBe(2); // ran exactly totalRuns times despite throwing
+          timer.stop();
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+      timer.start();
+    }));
+});
+
+describe('TaskTimer re-entrancy', () => {
+  it('does not double-schedule when start() is called inside a tick', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      let ticks = 0;
+      let restarted = false;
+      timer.on(Event.TICK, () => {
+        ticks++;
+        if (!restarted) {
+          restarted = true;
+          timer.start(); // re-entrant restart from within the tick
+        }
+      });
+      timer.start();
+      vi.advanceTimersByTime(20); // first tick → triggers the re-entrant start()
+      const baseline = ticks;
+      vi.advanceTimersByTime(20); // exactly one interval later
+      expect(ticks - baseline).toBe(1); // a single tick chain, not two
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('TaskTimer precision', () => {

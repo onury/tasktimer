@@ -1,21 +1,8 @@
-const proto = Object.prototype;
-
 /**
  *  Small internal helpers shared across the library.
  *  @internal
  */
 const utils = {
-  /**
-   *  Gets the lower-cased internal `[[Class]]` of a value, e.g. `'array'`,
-   *  `'object'`, `'date'`, `'promise'`.
-   */
-  type(o: any): string {
-    return proto.toString
-      .call(o)
-      .match(/\s(\w+)/i)![1]
-      .toLowerCase();
-  },
-
   /**
    *  Whether the value is neither `null` nor `undefined`.
    */
@@ -33,11 +20,13 @@ const utils = {
   },
 
   /**
-   *  Returns `value` when it is a number `>= minimum`, clamping smaller numbers
-   *  to `minimum` and falling back to `defaultValue` for non-numbers.
+   *  Returns `value` when it is a finite number `>= minimum`, clamping smaller
+   *  numbers to `minimum` and falling back to `defaultValue` for anything that
+   *  is not a finite number (non-numbers, `NaN`, `Infinity`). The return type
+   *  carries `defaultValue`'s type so a `null` default flows through honestly.
    */
-  getNumber(value: number, minimum: number, defaultValue: number): number {
-    if (typeof value !== 'number') return defaultValue;
+  getNumber<D>(value: number, minimum: number, defaultValue: D): number | D {
+    if (!Number.isFinite(value)) return defaultValue;
     return Math.max(value, minimum);
   },
 

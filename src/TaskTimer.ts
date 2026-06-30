@@ -84,6 +84,15 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
   #runCount = 0;
 
   /**
+   *  Bumped whenever the schedule is cancelled (`#stop`). A tick captures it on
+   *  entry; if it changed during dispatch — e.g. a tick handler called
+   *  `start()`/`stop()`/`reset()` — the tick skips its trailing reschedule so it
+   *  doesn't leave a second tick chain running.
+   *  @internal
+   */
+  #generation = 0;
+
+  /**
    *  Creates a new `TaskTimer`.
    *  @param options - Timer options, or a base interval in milliseconds. Tasks
    *  run on ticks rather than millisecond intervals, so this is the base
@@ -411,7 +420,8 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
     if (typeof options === 'function') {
       options = { callback: options };
     }
-    if (utils.type(options) === 'object' && !options.id) {
+    // options is now a Task or ITaskOptions; auto-generate an id when missing.
+    if (!options.id) {
       (options as ITaskOptions).id = this.#getUniqueTaskID();
     }
     if (this.get(options.id!)) {
@@ -431,6 +441,7 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
    *  @internal
    */
   #stop(): void {
+    this.#generation++;
     this.#state.tickCountAfterResume = 0;
     // clearTimeout/clearImmediate are safe no-ops on a null handle.
     clearTimeout(this.#timeoutRef);
@@ -466,6 +477,7 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
   #tick(): void {
     this.#state.state = State.RUNNING;
     const { tasks } = this.#state;
+    const generation = this.#generation;
 
     this.#state.tickCount++;
     this.#state.tickCountAfterResume++;
@@ -475,7 +487,10 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
       if (task.canRunOnTick) this.#dispatch(task);
     }
 
-    this.#run();
+    // If a tick handler restarted/stopped/reset the timer it already
+    // (re)scheduled (or shouldn't reschedule); skip the trailing one to avoid a
+    // duplicate tick chain.
+    if (generation === this.#generation) this.#run();
   }
 
   /**
@@ -503,6 +518,10 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
 
   /**
    *  Marks the start/resume time, using the monotonic high-resolution clock.
+   *  Note the deliberate split: scheduling/drift uses `performance.now()`
+   *  (monotonic, drift-free) while the user-facing `time` fields use `Date.now()`
+   *  (wall-clock timestamps). Do not unify them — wall-clock drift must not leak
+   *  into the scheduler.
    *  @internal
    */
   // Stryker disable all: high-resolution time source; mutations alter timing precision, not run outcomes.

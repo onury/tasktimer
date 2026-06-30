@@ -3,18 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { utils } from '../src/utils.js';
 
 describe('utils', () => {
-  it('type()', () => {
-    expect(utils.type(null)).toBe('null');
-    expect(utils.type(undefined)).toBe('undefined');
-    expect(utils.type(true)).toBe('boolean');
-    expect(utils.type([])).toBe('array');
-    expect(utils.type({})).toBe('object');
-    expect(utils.type(1)).toBe('number');
-    expect(utils.type('1')).toBe('string');
-    expect(utils.type(new Date())).toBe('date');
-    expect(utils.type(Promise.resolve())).toBe('promise');
-  });
-
   it('isset()', () => {
     expect(utils.isset(null)).toBe(false);
     expect(utils.isset(undefined)).toBe(false);
@@ -23,7 +11,7 @@ describe('utils', () => {
   });
 
   it('ensureArray()', () => {
-    expect(utils.type(utils.ensureArray(1))).toBe('array');
+    expect(Array.isArray(utils.ensureArray(1))).toBe(true);
     expect(utils.ensureArray([])).toEqual([]);
     expect(utils.ensureArray(1)).toEqual([1]);
     expect(utils.ensureArray(null)).toEqual([]);
@@ -38,6 +26,12 @@ describe('utils', () => {
     expect(utils.getNumber(0, 1, 0)).toBe(1);
     expect(utils.getNumber(1, 1, 0)).toBe(1);
     expect(utils.getNumber(null as any, 1, 3)).toBe(3);
+    // non-finite values fall back to the default (NaN/Infinity, not just non-numbers)
+    expect(utils.getNumber(Number.NaN, 1, 3)).toBe(3);
+    expect(utils.getNumber(Number.POSITIVE_INFINITY, 1, 3)).toBe(3);
+    expect(utils.getNumber('5' as any, 1, 3)).toBe(3);
+    // the default's type flows through (a null default stays null)
+    expect(utils.getNumber(Number.NaN, 0, null)).toBe(null);
   });
 
   it('getBool()', () => {

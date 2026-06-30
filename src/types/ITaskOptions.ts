@@ -39,7 +39,7 @@ interface ITaskBaseOptions<TData = any> {
    *  Total number of times the task should run. `0` or `null` means unlimited,
    *  until `stopDate` is reached or the timer stops. Default: `null`.
    */
-  totalRuns?: number;
+  totalRuns?: number | null;
   /**
    *  Date/time (or timestamp) to start executing the task. If omitted, the task
    *  runs on its tick interval right after the timer starts.

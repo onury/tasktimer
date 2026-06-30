@@ -129,11 +129,11 @@ class Task<TData = any> {
    *  Total number of times the task should run. `0` or `null` means unlimited
    *  (until the timer stops).
    */
-  get totalRuns(): number {
-    return this.#state.totalRuns!;
+  get totalRuns(): number | null {
+    return this.#state.totalRuns ?? null;
   }
-  set totalRuns(value: number) {
-    this.#state.totalRuns = utils.getNumber(value, 0, DEFAULT_TASK_OPTIONS.totalRuns!);
+  set totalRuns(value: number | null) {
+    this.#state.totalRuns = utils.getNumber(value as number, 0, DEFAULT_TASK_OPTIONS.totalRuns);
   }
 
   /**
@@ -377,12 +377,16 @@ class Task<TData = any> {
           .then(() => this.#done())
           .catch((err: Error) => {
             this.#emitError(err);
+            // an errored run still happened — let it count toward completion
+            this.#done();
           });
       } else {
         this.#done();
       }
     } catch (err) {
       this.#emitError(err as Error);
+      // an errored run still happened — let it count toward completion
+      this.#done();
     }
   }
 
