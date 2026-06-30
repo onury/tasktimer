@@ -39,11 +39,12 @@ interface ITaskBaseOptions {
    */
   stopDate?: number | Date;
   /**
-   *  Whether to wrap the callback in a `setImmediate()` before executing. Useful
-   *  when the task synchronously blocks the event loop without doing I/O or
-   *  using JS timers. Default: `false`.
+   *  Whether to defer the callback to the next event-loop turn (via
+   *  `setImmediate`) before executing, so it yields instead of running inline on
+   *  the tick. Useful when the task synchronously blocks the event loop without
+   *  doing I/O or using JS timers. Default: `false`.
    */
-  immediate?: boolean;
+  defer?: boolean;
   /**
    *  Whether to remove the task (freeing memory) once it has completed its runs.
    *  For this to take effect, the task must have `totalRuns` and/or `stopDate`

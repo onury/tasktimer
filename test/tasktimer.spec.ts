@@ -67,7 +67,7 @@ describe('TaskTimer exports & defaults', () => {
     expect(task.tickInterval).toBe(1);
     expect(task.totalRuns).toBe(null);
     expect(task.removeOnCompleted).toBe(false);
-    expect(task.immediate).toBe(false);
+    expect(task.defer).toBe(false);
     expect(task.currentRuns).toBe(0);
     expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
     expect(task.completed).toBe(false);
@@ -83,7 +83,7 @@ describe('TaskTimer exports & defaults', () => {
       tickInterval: 5,
       totalRuns: 3,
       removeOnCompleted: true,
-      immediate: true,
+      defer: true,
       callback
     });
     expect(task.enabled).toBe(false);
@@ -91,7 +91,7 @@ describe('TaskTimer exports & defaults', () => {
     expect(task.tickInterval).toBe(5);
     expect(task.totalRuns).toBe(3);
     expect(task.removeOnCompleted).toBe(true);
-    expect(task.immediate).toBe(true);
+    expect(task.defer).toBe(true);
     expect(task.callback).toBe(callback);
   });
 
@@ -497,7 +497,7 @@ describe('Task reset & serialization', () => {
 });
 
 describe('Task callbacks', () => {
-  it('supports sync, immediate, done() and Promise tasks; skips disabled', () =>
+  it('supports sync, deferred, done() and Promise tasks; skips disabled', () =>
     new Promise<void>((resolve, reject) => {
       // interval comfortably larger than the async delays, so a one-shot task's
       // async work resolves (marking it completed) before its next tick.
@@ -513,9 +513,7 @@ describe('Task callbacks', () => {
           }
         })
       );
-      timer.add(
-        new Task({ id: 'immediate', tickDelay: 2, totalRuns: 1, immediate: true, callback: noop })
-      );
+      timer.add(new Task({ id: 'defer', tickDelay: 2, totalRuns: 1, defer: true, callback: noop }));
       timer.add(
         new Task({
           id: 'promise',
@@ -532,12 +530,12 @@ describe('Task callbacks', () => {
         const task = e.data as Task;
         if (task.id === 'promise') {
           try {
-            // each enabled task (sync, async-done, immediate, promise) ran; the
+            // each enabled task (sync, async-done, deferred, promise) ran; the
             // disabled one was skipped. Asserting per-task currentRuns is robust
             // to timing: under load, precision catch-up can re-run a one-shot
             // async task before its promise settles, which would inflate a total.
             expect(timer.get('disabled')!.currentRuns).toBe(0);
-            for (const id of ['sync', 'async-done', 'immediate', 'promise']) {
+            for (const id of ['sync', 'async-done', 'defer', 'promise']) {
               expect(timer.get(id)!.currentRuns).toBeGreaterThanOrEqual(1);
             }
             timer.stop();
@@ -745,14 +743,14 @@ describe('TaskTimer scheduling & timing details', () => {
       timer.start();
     }));
 
-  it('runs an immediate task after a same-tick synchronous task', () =>
+  it('runs a deferred task after a same-tick synchronous task', () =>
     new Promise<void>((resolve, reject) => {
       const order: string[] = [];
       const timer = new TaskTimer(40);
-      // immediate task is registered first but should run last on the tick.
+      // deferred task is registered first but should run last on the tick.
       timer.add({
         id: 'imm',
-        immediate: true,
+        defer: true,
         totalRuns: 1,
         callback: (): void => {
           order.push('imm');

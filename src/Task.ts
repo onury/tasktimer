@@ -21,7 +21,7 @@ const DEFAULT_TASK_OPTIONS = Object.freeze({
   totalRuns: null as number | null,
   startDate: null as number | Date | null,
   stopDate: null as number | Date | null,
-  immediate: false,
+  defer: false,
   removeOnCompleted: false
 });
 
@@ -134,14 +134,15 @@ class Task {
   }
 
   /**
-   *  Whether the callback is wrapped in a `setImmediate()` before executing.
-   *  Useful when the task synchronously blocks the event loop.
+   *  Whether to defer the callback to the next event-loop turn (via
+   *  `setImmediate`) before executing. Useful when the task synchronously blocks
+   *  the event loop, so it yields rather than running inline on the tick.
    */
-  get immediate(): boolean {
-    return this.#state.immediate!;
+  get defer(): boolean {
+    return this.#state.defer!;
   }
-  set immediate(value: boolean) {
-    this.#state.immediate = utils.getBool(value, DEFAULT_TASK_OPTIONS.immediate);
+  set defer(value: boolean) {
+    this.#state.defer = utils.getBool(value, DEFAULT_TASK_OPTIONS.defer);
   }
 
   /**
@@ -272,7 +273,7 @@ class Task {
     this.#state.currentRuns++;
     onRun();
 
-    if (this.immediate) {
+    if (this.defer) {
       utils.setImmediate(() => this.#execCallback());
     } else {
       this.#execCallback();
@@ -361,7 +362,7 @@ class Task {
     this.tickDelay = options.tickDelay!;
     this.tickInterval = options.tickInterval!;
     this.totalRuns = options.totalRuns!;
-    this.immediate = options.immediate!;
+    this.defer = options.defer!;
     this.removeOnCompleted = options.removeOnCompleted!;
   }
 }
