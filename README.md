@@ -7,27 +7,30 @@
     </a>
 </p>
 <p align="center">
-    <a href="https://github.com/onury/tasktimer/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/onury/tasktimer/ci.yml?branch=master&style=flat" alt="Build Status" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/coverage-100%25-2BB150?style=flat" alt="Coverage" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/mutation-100%25-2BB150?style=flat" alt="Mutation Score" /></a>
-    <a href="https://www.npmjs.com/package/tasktimer"><img src="https://img.shields.io/npm/v/tasktimer?style=flat&logo=npm&label=&color=C6234B" alt="npm" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/dependencies-0-2BB150?style=flat" alt="Zero Dependencies" /></a>
-    <a href="https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7"><img src="https://img.shields.io/badge/module-ESM-F7DF1E?style=flat" alt="ESM" /></a>
-    <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/built_with-TypeScript-3260C7?style=flat" alt="TypeScript" /></a>
-    <a href="https://github.com/onury/tasktimer/blob/master/LICENSE"><img src="https://img.shields.io/npm/l/tasktimer?style=flat&color=2BB150" alt="License" /></a>
-    <a href="https://onury.io/tasktimer"><img src="https://img.shields.io/badge/docs-onury.io-c27cf4?style=flat" alt="Documentation" /></a>
+  <a href="https://github.com/onury/tasktimer/actions/workflows/ci.yml"><img src="https://github.com/onury/tasktimer/actions/workflows/ci.yml/badge.svg" alt="build" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-100%25-2BB150?logo=vitest&logoColor=%23FDC72B&style=flat" alt="coverage" /></a>
+  <a href="https://stryker-mutator.io/docs/"><img src="https://img.shields.io/badge/mutation-100%25-2BB150?style=flat" alt="mutation score" /></a>
+  <a href="https://www.npmjs.com/package/tasktimer"><img src="https://img.shields.io/npm/v/tasktimer.svg?style=flat&label=&color=%23C6234B&logo=npm" alt="version" /></a>
+  <a href="https://www.npmjs.com/package/tasktimer"><img src="https://img.shields.io/npm/dm/tasktimer.svg?style=flat&color=2BB150" alt="downloads" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/deps-zero-2BB150?style=flat" alt="zero dependencies" /></a>
+  <a href="https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7"><img src="https://img.shields.io/badge/ESM-F7DF1E?style=flat" alt="ESM" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TS-3260C7?style=flat" alt="TS" /></a>
+  <a href="https://github.com/onury/tasktimer/blob/master/LICENSE"><img src="https://img.shields.io/npm/l/tasktimer.svg?style=flat&color=blue" alt="license" /></a>
+  <a href="https://onury.io/tasktimer"><img src="https://img.shields.io/badge/docs-onury.io-c27cf4?style=flat" alt="documentation" /></a>
 </p>
 
 > This module is **ESM** 🔆. Please [**read this**](https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7).
 
 An accurate timer utility for running periodic tasks on the given interval ticks or dates — with a single timer instance, zero runtime dependencies, and full TypeScript types.
 
+📖 &nbsp;**Full documentation & guides:** &nbsp;**[onury.io/tasktimer](https://onury.io/tasktimer)**
+
 > [!TIP]
-> **v4** is a 2026 modernization — ESM-only, zero-dependency, browser-safe, drift-free precision — with some new sugar: leading-edge runs (`lead`), typed task `data`, typed events, coded errors (`TaskTimerError`), and `silentErrors`. &nbsp;**[What's changed →](CHANGELOG.md#migrating-from-3x)**
+> **v4** is a 2026 modernization — ESM-only, zero-dependency, browser-safe, drift-free precision — that also **squashed some long-standing bugs** and made **API improvements**, plus new sugar: leading-edge runs (`lead`), typed task `data`, typed events, coded errors (`TaskTimerError`), and `silentErrors`. &nbsp;**[What's changed →](CHANGELOG.md#migrating-from-3x)**
 
 ## Why TaskTimer?
 
-Because of the single-threaded, asynchronous [nature of JavaScript][how-timers-work], each execution takes a slice of CPU time, and the wait before the next one varies with the load. This creates a cumulative latency in naive timers that gradually drifts away from the intended schedule. TaskTimer corrects this drift on every tick, and it lets you run many tasks — each on its own interval, run limit, or date window — from one timer.
+Because of the single-threaded, asynchronous [nature of JavaScript][how-timers-work], each execution takes a slice of CPU time, and the wait before the next one varies with the load. This creates a cumulative latency in naive timers that gradually drifts away from the intended schedule. TaskTimer corrects this drift on every tick, and it lets you run many tasks — each on its own interval, run limit, or date window — from a single timer.
 
 ## Features
 
@@ -258,9 +261,10 @@ Full reference: **[onury.io/tasktimer](https://onury.io/tasktimer)**.
 
 See [CHANGELOG.md](CHANGELOG.md). Migrating from v3? See the [migration notes](CHANGELOG.md#migrating-from-3x) — v4 is **ESM-only**, drops the `TaskTimer.Event` namespace for named exports, and reshapes the event payload.
 
-## Related
+## Other Projects
 
 - [**AccessControl**](https://github.com/onury/accesscontrol) — Role and Attribute based Access Control for Node.js.
+- [**Configuard**](https://github.com/onury/configuard) — Type-safe configuration and environment-variable validation.
 - [**Notation**](https://github.com/onury/notation) — Utility for notating and manipulating JS objects via dot-separated keys.
 
 ## License
