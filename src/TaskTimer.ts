@@ -441,6 +441,7 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
    *  @internal
    */
   #stop(): void {
+    // Stryker disable next-line all: #generation is a change-detector; ++ vs -- invalidate a captured token equally, so the direction is immaterial.
     this.#generation++;
     this.#state.tickCountAfterResume = 0;
     // clearTimeout/clearImmediate are safe no-ops on a null handle.

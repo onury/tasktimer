@@ -340,9 +340,11 @@ describe('TaskTimer state machine', () => {
     // resume is a no-op unless paused/idle; here it resumes
     timer.resume();
     expect(timer.state).toBe(State.RUNNING);
-    // resume while already running is a no-op
+    // resume while already running is a no-op (does not re-run)
+    const runs = timer.runCount;
     timer.resume();
     expect(timer.state).toBe(State.RUNNING);
+    expect(timer.runCount).toBe(runs);
     timer.stop();
     expect(timer.state).toBe(State.STOPPED);
     expect(timer.time.stopped).not.toBe(0);
@@ -702,6 +704,65 @@ describe('Task callbacks', () => {
       timer.start();
     }));
 
+  it('completes a sync task via the synchronous #done path (no spurious error)', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(15);
+      const guard = setTimeout(() => {
+        timer.stop();
+        reject(new Error('sync task never completed'));
+      }, 300);
+      let errored = false;
+      // a sync callback returns a non-thenable; it must go through the plain
+      // sync branch, not be treated as a Promise (which would throw + emit taskError).
+      timer.on(Event.TASK_ERROR, () => {
+        errored = true;
+      });
+      timer.add({ id: 's', totalRuns: 1, callback: noop });
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+        if (e.task!.id === 's') {
+          clearTimeout(guard);
+          try {
+            expect(e.task!.completed).toBe(true);
+            expect(errored).toBe(false);
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
+
+  it('completes a task only once its done() callback is called', () =>
+    new Promise<void>((resolve, reject) => {
+      const timer = new TaskTimer(15);
+      const guard = setTimeout(() => {
+        timer.stop();
+        reject(new Error('done()-based task never completed'));
+      }, 400);
+      timer.add({
+        id: 'd',
+        totalRuns: 1,
+        callback(_task: Task, done?: () => void): void {
+          setTimeout(() => done?.(), 10);
+        }
+      });
+      timer.on(Event.TASK_COMPLETED, (e: ITaskTimerEvent) => {
+        if (e.task!.id === 'd') {
+          clearTimeout(guard);
+          try {
+            expect(e.task!.completed).toBe(true);
+            timer.stop();
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+      timer.start();
+    }));
+
   it('emits taskError for a throwing callback', () =>
     new Promise<void>((resolve, reject) => {
       const timer = new TaskTimer(40);
@@ -802,6 +863,7 @@ describe('Task callbacks', () => {
           expect(err).toBeInstanceOf(TaskTimerError);
           expect((err as TaskTimerError).code).toBe(ErrorCode.TASK_ERROR);
           expect((err as TaskTimerError).cause).toBe(original);
+          expect((err as TaskTimerError).message).toContain("'boom'");
           resolve();
         } catch (e) {
           reject(e);
