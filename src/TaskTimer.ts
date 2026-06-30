@@ -202,6 +202,15 @@ class TaskTimer extends EventEmitter {
   }
 
   /**
+   *  All tasks currently on the timer, in insertion order. Read every task ID
+   *  via `timer.tasks.map(task => task.id)`. Use {@link TaskTimer.get} for a
+   *  single lookup by ID.
+   */
+  get tasks(): TaskClass[] {
+    return Object.values(this.#state.tasks);
+  }
+
+  /**
    *  Total number of all task executions (runs).
    */
   get taskRunCount(): number {
@@ -223,7 +232,7 @@ class TaskTimer extends EventEmitter {
    *  Gets the task with the given ID, or `null` if not found.
    *  @param id - ID of the task.
    */
-  get(id: string): TaskClass {
+  get(id: string): TaskClass | null {
     return this.#state.tasks[id] || null;
   }
 
@@ -252,18 +261,18 @@ class TaskTimer extends EventEmitter {
    */
   remove(task: string | TaskClass): TaskTimer {
     const id: string = typeof task === 'string' ? task : task.id;
-    task = this.get(id);
+    const found = this.get(id);
 
-    if (!id || !task) {
+    if (!id || !found) {
       throw new Error(`No tasks exist with ID: '${id}'.`);
     }
 
     // decrement completed count first if this is a completed task.
     // Stryker disable next-line all: guard conditions only diverge for remove-sequences (non-completed / zero-count) that leave no observable accounting difference in reachable states.
-    if (task.completed && this.#state.completedTaskCount > 0) this.#state.completedTaskCount--;
+    if (found.completed && this.#state.completedTaskCount > 0) this.#state.completedTaskCount--;
 
     delete this.#state.tasks[id];
-    this.#emit(Event.TASK_REMOVED, task);
+    this.#emit(Event.TASK_REMOVED, found);
     return this;
   }
 

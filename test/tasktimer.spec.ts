@@ -65,7 +65,7 @@ describe('TaskTimer namespace & defaults', () => {
     expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
     expect(task.completed).toBe(false);
 
-    task = timer.add({ callback: noop }).get('task1');
+    task = timer.add({ callback: noop }).get('task1')!;
     expect(task.id).toBe('task1');
 
     const callback = (): void => undefined;
@@ -126,11 +126,29 @@ describe('TaskTimer namespace & defaults', () => {
     expect(timer.taskCount).toBe(2);
   });
 
+  it('exposes all tasks (and their ids) via the tasks getter', () => {
+    const timer = new TaskTimer();
+    expect(timer.tasks).toEqual([]);
+    timer.add({ id: 'a', callback: noop });
+    timer.add({ id: 'b', callback: noop });
+    const tasks = timer.tasks;
+    expect(tasks).toHaveLength(2);
+    expect(tasks.every((t) => t instanceof Task)).toBe(true);
+    expect(tasks.map((t) => t.id)).toEqual(['a', 'b']); // insertion order
+    timer.remove('a');
+    expect(timer.tasks.map((t) => t.id)).toEqual(['b']);
+  });
+
+  it('get() returns null for an unknown id', () => {
+    const timer = new TaskTimer();
+    expect(timer.get('nope')).toBe(null);
+  });
+
   it('preserves an explicit id and only auto-generates when missing', () => {
     const timer = new TaskTimer();
     timer.add({ id: 'explicit', tickInterval: 4, callback: noop });
     expect(timer.get('explicit')).not.toBe(null);
-    expect(timer.get('explicit').tickInterval).toBe(4);
+    expect(timer.get('explicit')!.tickInterval).toBe(4);
     // a Task instance keeps its own id (no overwrite/auto-generation)
     const instance = new Task({ id: 'inst', callback: noop });
     timer.add(instance);
@@ -405,7 +423,7 @@ describe('Task scheduling by date', () => {
         }
       });
 
-      const task = timer.get('task-date');
+      const task = timer.get('task-date')!;
       expect(task.completed).toBe(false);
       expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
 
@@ -511,9 +529,9 @@ describe('Task callbacks', () => {
             // disabled one was skipped. Asserting per-task currentRuns is robust
             // to timing: under load, precision catch-up can re-run a one-shot
             // async task before its promise settles, which would inflate a total.
-            expect(timer.get('disabled').currentRuns).toBe(0);
+            expect(timer.get('disabled')!.currentRuns).toBe(0);
             for (const id of ['sync', 'async-done', 'immediate', 'promise']) {
-              expect(timer.get(id).currentRuns).toBeGreaterThanOrEqual(1);
+              expect(timer.get(id)!.currentRuns).toBeGreaterThanOrEqual(1);
             }
             timer.stop();
             resolve();
@@ -685,7 +703,7 @@ describe('TaskTimer scheduling & timing details', () => {
       timer.on(TaskTimer.Event.TICK, () => {
         try {
           if (timer.tickCount === 2) {
-            const t = timer.get('r').time;
+            const t = timer.get('r')!.time;
             expect(t.started).toBeGreaterThan(0);
             expect(t.stopped).toBe(0); // not completed
             expect(t.elapsed).toBeGreaterThan(0); // live, not negative
