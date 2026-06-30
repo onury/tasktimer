@@ -14,3 +14,6 @@ design
 TODO.md
 .vscode/
 .DS_Store
+
+# Playwright MCP artifacts
+.playwright-mcp/
