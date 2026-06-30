@@ -9,7 +9,7 @@
 <p align="center">
     <a href="https://github.com/onury/tasktimer/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/onury/tasktimer/ci.yml?branch=master&style=flat" alt="Build Status" /></a>
     <a href="#"><img src="https://img.shields.io/badge/coverage-100%25-2BB150?style=flat" alt="Coverage" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/mutation-99%25-2BB150?style=flat" alt="Mutation Score" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/mutation-100%25-2BB150?style=flat" alt="Mutation Score" /></a>
     <a href="https://www.npmjs.com/package/tasktimer"><img src="https://img.shields.io/npm/v/tasktimer?style=flat&logo=npm&label=&color=C6234B" alt="npm" /></a>
     <a href="#"><img src="https://img.shields.io/badge/dependencies-0-2BB150?style=flat" alt="Zero Dependencies" /></a>
     <a href="https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7"><img src="https://img.shields.io/badge/module-ESM-F7DF1E?style=flat" alt="ESM" /></a>
@@ -22,20 +22,25 @@
 
 An accurate timer utility for running periodic tasks on the given interval ticks or dates — with a single timer instance, zero runtime dependencies, and full TypeScript types.
 
+> [!TIP]
+> **v4** is a 2026 modernization — ESM-only, zero-dependency, browser-safe, drift-free precision — with some new sugar: leading-edge runs (`lead`), typed task `data`, typed events, coded errors (`TaskTimerError`), and `silentErrors`. &nbsp;**[What's changed →](CHANGELOG.md#migrating-from-3x)**
+
 ## Why TaskTimer?
 
 Because of the single-threaded, asynchronous [nature of JavaScript][how-timers-work], each execution takes a slice of CPU time, and the wait before the next one varies with the load. This creates a cumulative latency in naive timers that gradually drifts away from the intended schedule. TaskTimer corrects this drift on every tick, and it lets you run many tasks — each on its own interval, run limit, or date window — from one timer.
 
 ## Features
 
-- **Precision** (on by default): the delay between ticks is auto-adjusted when it drifts due to task/CPU load or [clock drift][clock-drift]. In Node, it uses high-resolution [`process.hrtime()`][hrtime] (immune to clock drift) and auto-recovers via immediate ticks after a blocking task.
+- **Precision** (on by default): the delay between ticks is auto-adjusted when it drifts due to task/CPU load or [clock drift][clock-drift]. It uses the monotonic [`performance.now()`][perf-now] (drift-free, in Node **and** the browser) and auto-recovers via immediate ticks after a blocking task.
 - Run or schedule **multiple tasks** on a single timer instance.
 - **Sync or async** tasks — return a `Promise` or use the `done()` callback.
-- **Limit runs** per task (`totalRuns`), add an initial **delay** (`tickDelay`), or bind a task to a **date window** (`startDate` / `stopDate`).
+- **Limit runs** per task (`totalRuns`), add an initial **delay** (`tickDelay`), run on the **leading edge** (`lead`), or bind a task to a **date window** (`startDate` / `stopDate`).
+- Attach arbitrary **`data`** to a task — typed via `Task<TData>`.
 - Add, remove, reset, enable/disable, **pause and resume** tasks at any time — without recreating the timer.
 - **Stateful**: auto-stop when all tasks complete (`stopOnCompleted`); free memory when a task finishes (`removeOnCompleted`).
-- A familiar **`EventEmitter`** surface (`on` / `once` / `off` / `emit` …).
-- **ESM-only**, **zero runtime dependencies**, written in **TypeScript**.
+- A familiar, **typed `EventEmitter`** surface (`on` / `once` / `off` / `emit` …) — listeners get a typed event.
+- **Coded errors** — every throw is a `TaskTimerError` with a stable `err.code`; opt out of swallowing task errors with `silentErrors`.
+- **ESM-only**, **zero runtime dependencies**, runs in Node and the browser, written in **TypeScript**.
 
 ## Installation
 
@@ -44,11 +49,13 @@ npm i tasktimer
 ```
 
 ```js
-import { TaskTimer } from 'tasktimer';
+import { TaskTimer, Event, State } from 'tasktimer';
 ```
 
+`Event`, `State`, `Task`, `TaskTimerError` and `ErrorCode` are all named exports (there is no `TaskTimer.Event` namespace).
+
 > [!NOTE]
-> TaskTimer is **ESM-only** and Node-first. It runs in the browser too — bundle it with your app (Vite, esbuild, Rollup, webpack …); the high-resolution paths fall back gracefully when `process.hrtime` is unavailable.
+> TaskTimer is **ESM-only**. It runs in Node **and** the browser via native ESM or a bundler (Vite, esbuild, Rollup, webpack …) — precision uses the universal `performance.now()`, and `setImmediate` falls back to `setTimeout` off-Node.
 
 ## Usage
 
@@ -63,7 +70,7 @@ timer.add(task => console.log(`Run #${task.currentRuns}`)).start();
 
 ```js
 const timer = new TaskTimer(5000);
-timer.on(TaskTimer.Event.TICK, () => console.log(`Tick #${timer.tickCount}`));
+timer.on(Event.TICK, () => console.log(`Tick #${timer.tickCount}`));
 timer.start();
 ```
 
@@ -92,7 +99,7 @@ timer.add([
     }
 ]);
 
-timer.on(TaskTimer.Event.TICK, () => {
+timer.on(Event.TICK, () => {
     console.log(`tick ${timer.tickCount} · elapsed ${timer.time.elapsed} ms`);
 });
 
@@ -112,7 +119,7 @@ timer.add((task, done) => {
 ```
 
 > [!TIP]
-> Set `immediate: true` on a task to wrap its callback in a `setImmediate()` — useful when the task synchronously blocks the event loop without doing I/O.
+> Set `defer: true` on a task to defer its callback to the next event-loop turn (via `setImmediate`) — useful when the task synchronously blocks the event loop without doing I/O. Set `lead: true` to run a task once immediately on `start()` (the leading edge), instead of waiting a full interval.
 
 ### Auto-stop when everything completes
 
@@ -122,7 +129,7 @@ const timer = new TaskTimer({ interval: 1000, stopOnCompleted: true });
 timer.add({ totalRuns: 3, callback: doWork });
 timer.add({ totalRuns: 5, callback: doOtherWork });
 
-timer.on(TaskTimer.Event.COMPLETED, () => console.log('all tasks done'));
+timer.on(Event.COMPLETED, () => console.log('all tasks done'));
 timer.start();
 ```
 
@@ -156,10 +163,12 @@ timer.reset();   // back to idle; tasks removed silently
 | `interval` | `number` | Base tick interval in ms (read/write). |
 | `precision` | `boolean` | Whether drift auto-correction is enabled (read/write). |
 | `stopOnCompleted` | `boolean` | Auto-stop once all tasks complete (read/write). |
+| `silentErrors` | `boolean` | Swallow task errors with no `taskError` listener; `false` surfaces them (read/write). |
 | `state` | [`State`](#enumerations) | Current timer state (read-only). |
 | `time` | [`ITimeInfo`](#itimeinfo) | `{ started, stopped, elapsed }` for the current run (read-only). |
 | `tickCount` | `number` | Ticks elapsed in the current run (read-only). |
 | `taskCount` | `number` | Number of tasks (read-only). |
+| `tasks` | `Task[]` | All tasks, in insertion order (read-only). |
 | `taskRunCount` | `number` | Total task executions (read-only). |
 | `runCount` | `number` | Total timer runs, including resumes (read-only). |
 
@@ -168,7 +177,7 @@ timer.reset();   // back to idle; tasks removed silently
 | Method | Returns | Description |
 | --- | --- | --- |
 | `add(task)` | `TaskTimer` | Add a task, options, callback, or an array of these. |
-| `get(id)` | `Task \| null` | Get a task by id. |
+| `get(id)` | `Task \| undefined` | Get a task by id (`undefined` if absent). |
 | `remove(task)` | `TaskTimer` | Remove a task by id or instance. |
 | `start()` | `TaskTimer` | Start (or restart) the timer. |
 | `pause()` | `TaskTimer` | Pause the timer and all tasks. |
@@ -188,9 +197,11 @@ A `Task` is created implicitly via `timer.add(...)`, or explicitly with the cons
 | `enabled` | `boolean` | While `false`, the task bypasses its callback (read/write). |
 | `tickDelay` | `number` | Ticks to wait before the first run (read/write). |
 | `tickInterval` | `number` | Tick interval the task runs on (read/write). |
-| `totalRuns` | `number` | Run limit; `0`/`null` = unlimited (read/write). |
-| `immediate` | `boolean` | Wrap the callback in `setImmediate()` (read/write). |
+| `totalRuns` | `number \| null` | Run limit; `0`/`null` = unlimited (read/write). |
+| `defer` | `boolean` | Defer the callback to the next event-loop turn via `setImmediate` (read/write). |
+| `lead` | `boolean` | Run once immediately on `start()` (the leading edge) (read/write). |
 | `removeOnCompleted` | `boolean` | Remove the task once completed (read/write). |
+| `data` | `TData` | Arbitrary user data attached to the task (read/write). |
 | `currentRuns` | `number` | Number of times run so far (read-only). |
 | `completed` | `boolean` | Whether the task is completed (read-only). |
 | `time` | [`ITimeInfo`](#itimeinfo) | The task's lifetime `{ started, stopped, elapsed }` (read-only). |
@@ -199,9 +210,13 @@ A `Task` is created implicitly via `timer.add(...)`, or explicitly with the cons
 
 ### Enumerations
 
-`TaskTimer.State` — `IDLE` · `RUNNING` · `PAUSED` · `STOPPED`.
+All are named exports: `import { State, Event, ErrorCode } from 'tasktimer'`.
 
-`TaskTimer.Event` — the events emitted by the timer:
+`State` — `IDLE` · `RUNNING` · `PAUSED` · `STOPPED`.
+
+`ErrorCode` — the `code` on a thrown [`TaskTimerError`](https://onury.io/tasktimer): `NO_TASK_PROVIDED` · `TASK_ID_REQUIRED` · `CALLBACK_REQUIRED` · `DUPLICATE_TASK_ID` · `NO_SUCH_TASK` · `INVALID_DATE_RANGE` · `CANNOT_CHANGE_ID` · `TASK_ERROR`.
+
+`Event` — the events emitted by the timer:
 
 | Event | Value | Emitted when |
 | --- | --- | --- |
@@ -218,30 +233,30 @@ A `Task` is created implicitly via `timer.add(...)`, or explicitly with the cons
 | `TASK_ERROR` | `taskError` | A task throws or rejects. |
 | `COMPLETED` | `completed` | Every task has completed. |
 
-Event listeners receive an [`ITaskTimerEvent`](#itasktimerevent): `{ name, source, data?, error? }`.
+Event listeners receive a typed [`ITaskTimerEvent`](#itasktimerevent): `{ name, timer, task?, error? }`. The related task is `event.task` and the timer is `event.timer` — on every event, including `taskError`.
 
 ### Types
 
 ###### `ITaskTimerOptions`
-`{ interval?, precision?, stopOnCompleted? }`
+`{ interval?, precision?, stopOnCompleted?, silentErrors? }`
 
-###### `ITaskOptions`
-`{ id?, enabled?, tickDelay?, tickInterval?, totalRuns?, startDate?, stopDate?, immediate?, removeOnCompleted?, callback }`
+###### `ITaskOptions<TData>`
+`{ id?, enabled?, tickDelay?, tickInterval?, totalRuns?, startDate?, stopDate?, defer?, lead?, removeOnCompleted?, data?, callback }`
 
 ###### `ITimeInfo`
 `{ started, stopped, elapsed }` — timestamps and elapsed time in ms.
 
 ###### `ITaskTimerEvent`
-`{ name, source, data?, error? }`
+`{ name, timer, task?, error? }`
 
-###### `TaskCallback`
-`(task: Task, done?: () => void) => void | Promise<unknown>`
+###### `TaskCallback<TData>`
+`(task: Task<TData>, done?: () => void) => void | Promise<unknown>`
 
 Full reference: **[onury.io/tasktimer](https://onury.io/tasktimer)**.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md). Migrating from v3? See the [Unreleased](CHANGELOG.md) notes — v4 is **ESM-only**.
+See [CHANGELOG.md](CHANGELOG.md). Migrating from v3? See the [migration notes](CHANGELOG.md#migrating-from-3x) — v4 is **ESM-only**, drops the `TaskTimer.Event` namespace for named exports, and reshapes the event payload.
 
 ## Related
 
@@ -254,4 +269,4 @@ See [CHANGELOG.md](CHANGELOG.md). Migrating from v3? See the [Unreleased](CHANGE
 
 [how-timers-work]: https://johnresig.com/blog/how-javascript-timers-work/
 [clock-drift]: https://en.wikipedia.org/wiki/Clock_drift
-[hrtime]: https://nodejs.org/api/process.html#processhrtimetime
+[perf-now]: https://developer.mozilla.org/en-US/docs/Web/API/Performance/now

@@ -2,28 +2,49 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
-## 4.0.0 (2026-06-29)
+## 4.0.0 (2026-06-30)
 
-This is a modernization release. The public API (the `TaskTimer` / `Task` classes, the `TaskTimer.State` and `TaskTimer.Event` namespaces, options and events) is unchanged — but the module format and toolchain are new.
+A 2026 modernization of TaskTimer — ESM-only, zero-dependency, browser-safe, strongly typed — with some new sugar (`lead`, `task.data`, typed events, coded errors, `silentErrors`). The scheduling model is the same; the surface around it is cleaner and more honest. See the [migration notes](#migrating-from-3x) below.
+
+### Added
+- **`lead` task option** — run a task once immediately when the timer starts (the leading edge), in addition to its normal tick schedule, instead of waiting a full interval. A future `startDate` still defers it. Fixes [#41](https://github.com/onury/tasktimer/issues/41).
+- **`task.data`** — attach arbitrary user data to a task, available in the callback and event listeners. `Task` is now generic (`Task<TData>`); type it via `timer.get<MyType>(id)`. Fixes the ergonomics behind [#43](https://github.com/onury/tasktimer/issues/43).
+- **`timer.tasks`** — a getter returning all tasks in insertion order (`timer.tasks.map(t => t.id)` for every id). Fixes [#40](https://github.com/onury/tasktimer/issues/40).
+- **`silentErrors` timer option** (default `true`) — when `false`, a task error with no `taskError` listener is surfaced (re-thrown on the next turn) instead of swallowed; the timer keeps running either way.
+- **`TaskTimerError` + `ErrorCode`** — every error the library throws is now a `TaskTimerError` carrying a stable, machine-readable `code` (and a `cause`), so failures can be branched on without matching the message.
 
 ### Changed
-- **Breaking**: TaskTimer is now **ESM-only** (`"type": "module"`). It no longer ships a CommonJS entry; use `import { TaskTimer } from 'tasktimer'`. See the [ESM notice](https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7).
-- **Breaking**: minimum supported Node.js is now **22** (the LTS floor at release time).
-- **Zero runtime dependencies**: the `eventemitter3` dependency was removed in favor of a small built-in `EventEmitter` that preserves the same `on`/`once`/`off`/`emit` surface.
-- Types now compile against **TypeScript 6** with `NodeNext` resolution and ship with declaration maps.
-
-### Removed
-- **Breaking**: the bundled UMD `<script>` build (`tasktimer.min.js`) is gone. Bundle TaskTimer with your app (Vite, esbuild, Rollup, webpack …) for browser use.
+- **Breaking — ESM-only** (`"type": "module"`); no CommonJS entry. `import { TaskTimer } from 'tasktimer'`. Still runs in the browser via native ESM / a bundler. See the [ESM notice](https://gist.github.com/onury/d3f3d765d7db2e8b2d050d14315f2ac7).
+- **Breaking — minimum Node.js is now 22**.
+- **Breaking — no more `TaskTimer` namespace.** `Event`, `State`, `Task` (and the new `TaskTimerError`, `ErrorCode`) are **named exports**: `import { TaskTimer, Event, State } from 'tasktimer'`. `TaskTimer.Event.TICK` → `Event.TICK`.
+- **Breaking — event payload redesigned** to `{ name, timer, task, error }` (was `{ name, source, data }`). The related task is always `event.task` and the timer always `event.timer` — consistently, including on `taskError`. Listeners are now typed (you get an `ITaskTimerEvent`, not `any`).
+- **Breaking — task option `immediate` renamed to `defer`** — it defers the callback to the next event-loop turn (via `setImmediate`); the old name read as the opposite.
+- **Breaking — `timer.get(id)` returns `Task | undefined`** (was typed `Task`, returned `null`), mirroring `Map.get`.
+- **Zero runtime dependencies** — `eventemitter3` replaced by a small built-in, typed `EventEmitter` (same `on`/`once`/`off`/`emit` surface).
+- **Precision** now uses the monotonic `performance.now()` in every environment (Node and browser), so browser precision is no longer subject to wall-clock drift.
+- Types compile against **TypeScript 6** and ship with declaration maps.
 
 ### Fixed
-- The browser fallback for `setImmediate` invoked the callback eagerly instead of scheduling it; it now defers correctly via `setTimeout(…, 0)`.
+- **Task `time.elapsed` was negative while a task was running** (`stopped - started` with `stopped` still `0`); it now counts up live and freezes on completion, mirroring the timer's `time`. Fixes [#12](https://github.com/onury/tasktimer/issues/12).
+- **Invalid option values** (`NaN`/`Infinity`) no longer slip through: a `NaN` interval no longer busy-loops and a `NaN`/`Infinity` `tickInterval`/`totalRuns` no longer makes a task silently never run — they fall back to their defaults.
+- **A task that throws every run now honors `totalRuns`** instead of running forever — an errored run counts toward completion.
+- **Calling `start()` from within a tick** no longer leaves a second tick chain running (double-speed ticks).
+- The browser fallback for `setImmediate` defers correctly via `setTimeout(…, 0)`.
 
-### Docs
-- New documentation site at [onury.io/tasktimer](https://onury.io/tasktimer); rewritten README and exampled TSDoc across the public API.
+### Removed
+- **Breaking** — the bundled UMD `<script>` build (`tasktimer.min.js`). Bundle TaskTimer with your app (Vite, esbuild, Rollup, webpack …) for browser use.
 
-### Tooling
-- Build is now a plain `tsc` emit to `lib/` (no webpack/uglify).
-- Adopted **Biome** (lint + format), **Vitest** (100% coverage on all four metrics), and **Stryker** mutation testing; CI moved to **GitHub Actions** (Node 22, 24).
+### Docs / Tooling
+- New documentation site at [onury.io/tasktimer](https://onury.io/tasktimer); rewritten README and example-rich TSDoc across the public API.
+- Build is a plain `tsc` emit to `lib/`. Adopted **Biome** (lint + format), **Vitest** (100% coverage, all four metrics), and **Stryker** mutation testing (100%); CI on **GitHub Actions** (Node 22, 24).
+
+### Migrating from 3.x
+- `import TaskTimer from 'tasktimer'` → `import { TaskTimer } from 'tasktimer'`; named exports for `Event`/`State`/`Task`.
+- `TaskTimer.Event.TICK` → `Event.TICK`; `TaskTimer.State.RUNNING` → `State.RUNNING`.
+- In event listeners: `event.data` → `event.task`, `event.source` → `event.timer` (use `event.task` for the task on `taskError`).
+- Task option `immediate: true` → `defer: true`.
+- `timer.get(id)` now returns `undefined` (not `null`) when absent.
+- Errors thrown by the library are `TaskTimerError` (still `instanceof Error`); branch on `err.code` if you handle them.
 
 ## 3.0.0 (2019-08-02)
 
