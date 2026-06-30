@@ -3,7 +3,7 @@ title: Timer Lifecycle
 description: The four timer states and the transitions between them.
 ---
 
-A timer is always in one of four states, exposed by `timer.state` and enumerated by [`TaskTimer.State`](/tasktimer/api/enumerations/state/). The control methods move it between them.
+A timer is always in one of four states, exposed by `timer.state` and enumerated by the [`State`](/tasktimer/api/enumerations/state/) enum, a named export. The control methods move it between them.
 
 ## States
 
@@ -15,9 +15,9 @@ A timer is always in one of four states, exposed by `timer.state` and enumerated
 | `STOPPED` | `stopped` | Halted; tasks and counters are retained but not running. |
 
 ```js
-import { TaskTimer } from 'tasktimer';
+import { TaskTimer, State } from 'tasktimer';
 
-timer.state === TaskTimer.State.RUNNING;
+timer.state === State.RUNNING;
 ```
 
 ## Transitions

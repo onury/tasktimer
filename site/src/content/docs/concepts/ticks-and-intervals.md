@@ -57,6 +57,22 @@ timer.runCount;      // times the timer was started/resumed
 
 `tickCount` resets to `0` each time the timer is started or reset. A task fires on tick `n` when `n > tickDelay` and `(n - tickDelay) % tickInterval === 0` — covered in [Scheduling Tasks](/tasktimer/guides/scheduling/).
 
+## The Leading Edge
+
+Normally a task waits a full interval before its first run. Set `lead: true` to also run it **once immediately when the timer starts** — the leading edge — on top of its regular tick schedule:
+
+```js
+const timer = new TaskTimer(1000);
+
+timer.add({
+    lead: true,    // run once at start, then…
+    tickInterval: 5, // …every 5 ticks thereafter
+    callback: poll
+});
+```
+
+`lead` applies on `start()` only, and a future `startDate` still defers the first run until that time.
+
 :::tip
 Pick the base interval as the **greatest common resolution** your tasks need, then express each task's cadence as a `tickInterval`. One timer, evaluated once per tick, is cheaper than many independent timers.
 :::

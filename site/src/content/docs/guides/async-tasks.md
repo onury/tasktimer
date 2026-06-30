@@ -45,13 +45,13 @@ timer.add((task, done) => {
 If your callback declares a `done` parameter, you **must** call it — TaskTimer treats the task as in-flight until you do, and it won't complete (or fire `taskCompleted`). Use the promise form if you don't need `done`.
 :::
 
-## Immediate Tasks
+## Deferring Heavy Tasks
 
-A synchronous task that blocks the event loop holds up the whole timer. If the work is CPU-bound and can't be made async, set `immediate: true` to wrap the callback in a `setImmediate()`, deferring it off the current tick:
+A synchronous task that blocks the event loop holds up the whole timer. If the work is CPU-bound and can't be made async, set `defer: true` to push the callback to the next event-loop turn (via `setImmediate`), so it yields instead of running inline on the tick:
 
 ```js
 timer.add({
-    immediate: true,
+    defer: true,
     callback: crunchNumbers // heavy, synchronous
 });
 ```
@@ -60,11 +60,15 @@ This doesn't make the work parallel — JavaScript is single-threaded — but it
 
 ## Handling Errors
 
-A task that throws, or returns a rejecting promise, emits `taskError` with the error; the timer keeps running and other tasks are unaffected.
+A task that throws, or returns a rejecting promise, emits [`taskError`](/tasktimer/concepts/events/) with the error; the timer keeps running and other tasks are unaffected. The errored run still counts — it advances `currentRuns` and `totalRuns` like any other.
+
+Every error TaskTimer raises is a `TaskTimerError` (extends `Error`) carrying a machine-readable [`ErrorCode`](/tasktimer/api/enumerations/errorcode/) on `.code` and the original on `.cause`. On a `taskError` event the failing task is `event.task` and the thrown value is `event.error`:
 
 ```js
-timer.on(TaskTimer.Event.TASK_ERROR, event => {
-    console.error(`${event.source.id} failed:`, event.error);
+import { TaskTimer, Event } from 'tasktimer';
+
+timer.on(Event.TASK_ERROR, event => {
+    console.error(`${event.task.id} failed:`, event.error);
 });
 
 timer.add({
@@ -76,3 +80,13 @@ timer.add({
 ```
 
 For `done()`-style tasks, route failures through your own error handling — a thrown error before `done()` is caught, but an async failure inside the callback is yours to surface.
+
+### Unhandled Errors
+
+By default a task error with **no** `taskError` listener is swallowed (`silentErrors` is `true`). Set the timer's `silentErrors: false` to surface such errors instead — the error is re-thrown on the next event-loop turn as a `TaskTimerError` (original on `.cause`), while the timer keeps running:
+
+```js
+const timer = new TaskTimer({ interval: 1000, silentErrors: false });
+```
+
+A `taskError` listener always takes precedence: a handled error is never re-surfaced.

@@ -20,6 +20,8 @@ timer.add({
 });
 ```
 
+A `startDate` also defers a [`lead`](/tasktimer/guides/scheduling/) task: the leading-edge run waits until the date is reached rather than firing at `start()`.
+
 ## Stop Date
 
 `stopDate` retires the task at the given time. Once reached, the task is **completed** — it won't run again, and it emits [`taskCompleted`](/tasktimer/concepts/events/).

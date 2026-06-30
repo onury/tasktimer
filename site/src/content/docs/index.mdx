@@ -33,7 +33,7 @@ timer.add(task => console.log(task.currentRuns)).start();
       <i class="ti ti-target-arrow feature-icon fi-purple"></i>
       <h3>Accurate</h3>
     </div>
-    <p>Drift between ticks is auto-corrected against task/CPU load and clock drift — using high-resolution time in Node.</p>
+    <p>Drift between ticks is auto-corrected against task/CPU load and clock drift — using the monotonic <code>performance.now()</code> in both Node and the browser.</p>
   </div>
   <div class="feature">
     <div class="feature-head">

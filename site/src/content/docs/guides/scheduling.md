@@ -34,6 +34,20 @@ timer.add({
 
 A task fires on tick `n` exactly when `n > tickDelay` and `(n - tickDelay) % tickInterval === 0`. So `tickDelay: 2, tickInterval: 3` first runs on tick 5, then 8, 11, ….
 
+## Run on Start
+
+By default the first run lands one interval after `start()`, not at the moment of starting. Set `lead: true` to also run the task **once immediately** on the leading edge — then it continues on its normal `tickInterval`:
+
+```js
+timer.add({
+    lead: true,      // run now, at start()
+    tickInterval: 5, // then every 5 ticks
+    callback: poll
+});
+```
+
+A future [`startDate`](/tasktimer/guides/date-scheduling/) still defers the leading run until that time. `lead` takes effect on `start()` only.
+
 ## Run Limit
 
 `totalRuns` caps the number of executions. After the last run the task is **completed** and stops; set it to `0` or `null` (the default) for unlimited runs.

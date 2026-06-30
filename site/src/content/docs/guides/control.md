@@ -35,12 +35,14 @@ See [Timer Lifecycle](/tasktimer/concepts/timer-lifecycle/) for the full state m
 By default the timer keeps ticking even after every task has completed. Set `stopOnCompleted: true` to stop it automatically once all tasks finish — useful for one-shot batches.
 
 ```js
+import { TaskTimer, Event } from 'tasktimer';
+
 const timer = new TaskTimer({ interval: 1000, stopOnCompleted: true });
 
 timer.add({ id: 'a', totalRuns: 3, callback: jobA });
 timer.add({ id: 'b', totalRuns: 5, callback: jobB });
 
-timer.on(TaskTimer.Event.STOPPED, () => console.log('batch finished'));
+timer.on(Event.STOPPED, () => console.log('batch finished'));
 timer.start();
 ```
 
@@ -71,3 +73,12 @@ timer.remove(task);
 ```
 
 `reset()`, by contrast, removes every task **silently** — no `taskRemoved` events.
+
+## Inspecting Tasks
+
+`timer.tasks` returns every task as an array, in insertion order, and `timer.get(id)` looks one up by id (returning `undefined` if there's no match):
+
+```js
+timer.tasks.map(task => task.id); // all task ids
+const task = timer.get('one-shot'); // Task | undefined
+```

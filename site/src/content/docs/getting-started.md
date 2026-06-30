@@ -18,7 +18,7 @@ import { TaskTimer } from 'tasktimer';
 ```
 
 :::note
-TaskTimer is ESM-only and Node-first. It runs in the browser too — bundle it with your app (Vite, esbuild, Rollup, webpack …); the high-resolution timing path falls back gracefully when `process.hrtime` is unavailable.
+TaskTimer is ESM-only and requires Node 22+. It runs in the browser too — bundle it with your app (Vite, esbuild, Rollup, webpack …). Precision uses the monotonic `performance.now()` in every environment, so timing is drift-free in the browser as well as in Node.
 :::
 
 ## Your First Timer
@@ -67,11 +67,36 @@ timer.start();
 
 ## Listen for Events
 
-A `TaskTimer` is an event emitter. Subscribe to lifecycle [events](/tasktimer/concepts/events/) such as `tick` or `task`.
+A `TaskTimer` is an event emitter. `Event` is a named export — import it alongside `TaskTimer`. Each listener receives a typed event object (`{ name, timer, task, error }`); the timer is always `event.timer`, and the related task is always `event.task`.
 
 ```js
-timer.on(TaskTimer.Event.TICK, () => {
-    console.log(`tick ${timer.tickCount} · elapsed ${timer.time.elapsed} ms`);
+import { TaskTimer, Event } from 'tasktimer';
+
+timer.on(Event.TICK, event => {
+    const { tickCount, time } = event.timer;
+    console.log(`tick ${tickCount} · elapsed ${time.elapsed} ms`);
+});
+
+timer.on(Event.TASK, event => {
+    console.log(`${event.task.id}: run ${event.task.currentRuns}`);
+});
+```
+
+See [Events](/tasktimer/concepts/events/) for the full list of lifecycle events.
+
+## Run Once at Start
+
+By default a task waits a full interval before its first run. Set `lead: true` to also run it once on the leading edge — the moment the timer starts. Attach your own typed payload with `data`, available as `task.data` in the callback and in event listeners.
+
+```js
+timer.add({
+    id: 'poll',
+    lead: true,        // run once at start, then on the schedule
+    tickInterval: 30,  // and every 30 ticks after
+    data: { url: '/health' },
+    callback(task) {
+        console.log(`polling ${task.data.url} (run ${task.currentRuns})`);
+    }
 });
 ```
 
