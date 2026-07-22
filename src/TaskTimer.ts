@@ -145,7 +145,11 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
    *  - The delay between ticks is auto-adjusted when it drifts due to task/CPU
    *    load or clock drift.
    *  - It uses a monotonic high-resolution clock (`performance.now()`), which is
-   *    not subject to wall-clock/system-clock drift.
+   *    not subject to wall-clock/system-clock drift. This is a deliberate choice
+   *    over Node's `process.hrtime` (integer-nanosecond) source: a scheduler is
+   *    bottlenecked by `setTimeout` granularity and the drift math works in whole
+   *    milliseconds, so sub-millisecond precision is rounded away — and only
+   *    `performance.now()` is available across Node, browsers, Deno and Bun.
    *  - If a tick is significantly late (e.g. a blocking task), it auto-recovers
    *    by running immediate ticks until the time/tick balance is restored.
    *
