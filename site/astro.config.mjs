@@ -7,6 +7,7 @@
 // TypeScript entry under Node, which fails on Node >=22.18.
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { unified } from '@astrojs/markdown-remark';
 import { createStarlightTypeDocPlugin } from 'starlight-typedoc';
 
 const [starlightTypeDoc, typeDocSidebarGroup] = createStarlightTypeDocPlugin();
@@ -32,7 +33,7 @@ function remarkDropConstructorsHeading() {
 export default defineConfig({
   site: 'https://onury.io',
   base: "/tasktimer",
-  markdown: { remarkPlugins: [remarkDropConstructorsHeading] },
+  markdown: { processor: unified({ remarkPlugins: [remarkDropConstructorsHeading] }) },
   integrations: [
     starlight({
       title: "TaskTimer",
