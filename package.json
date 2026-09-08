@@ -56,6 +56,9 @@
     "url": "https://github.com/onury/tasktimer/issues"
   },
   "homepage": "https://onury.io/tasktimer",
+  "overrides": {
+    "qs": "^6.16.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
     "@stryker-mutator/core": "^9.6.1",
