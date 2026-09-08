@@ -19,6 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+      # npm 10 (bundled with Node 22) crashes resolving vitest's peer graph:
+      # "Cannot read properties of null (reading 'edgesOut')". npm 11 fixes it.
+      - run: npm i -g npm@11
       - run: npm install
       - run: npm run build
       - run: npm test
