@@ -22,6 +22,8 @@ jobs:
       # npm 10 (bundled with Node 22) crashes resolving vitest's peer graph:
       # "Cannot read properties of null (reading 'edgesOut')". npm 11 fixes it.
       - run: npm i -g npm@11
+      # Node 22 runners bundle npm 10.9.8, which crashes lockfile-less installs (npm/cli#9787)
+      - run: npm install -g npm@11
       - run: npm install
       - run: npm run build
       - run: npm test
