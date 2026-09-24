@@ -9,7 +9,7 @@
     "progress"
   ],
   "jsonReporter": {
-    "fileName": "test/stryker/mutation-report.json"
+    "fileName": "test/mutation/mutation-report.json"
   },
   "coverageAnalysis": "perTest",
   "vitest": {
@@ -23,7 +23,7 @@
     "!src/**/enums/**"
   ],
   "htmlReporter": {
-    "fileName": "test/stryker/mutation-report.html"
+    "fileName": "test/mutation/mutation-report.html"
   },
   "thresholds": {
     "high": 100,
