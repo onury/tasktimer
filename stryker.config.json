@@ -7,10 +7,11 @@
     "json",
     "clear-text",
     "progress"
-  ],
+, "event-recorder"],
   "jsonReporter": {
     "fileName": "test/mutation/mutation-report.json"
   },
+  "eventReporter": { "baseDir": "test/mutation/events" },
   "coverageAnalysis": "perTest",
   "vitest": {
     "configFile": "vitest.stryker.config.ts"
