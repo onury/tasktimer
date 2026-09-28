@@ -6,8 +6,9 @@
     "html",
     "json",
     "clear-text",
-    "progress"
-, "event-recorder"],
+    "progress",
+    "event-recorder"
+  ],
   "jsonReporter": {
     "fileName": "test/mutation/mutation-report.json"
   },
@@ -29,6 +30,6 @@
   "thresholds": {
     "high": 100,
     "low": 90,
-    "break": 90
+    "break": 100
   }
 }
