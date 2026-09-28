@@ -901,6 +901,104 @@ describe('Task callbacks', () => {
 });
 
 describe('TaskTimer re-entrancy', () => {
+  it.each(['pause', 'stop', 'reset'] as const)(
+    'skips pending tasks when a tick listener calls %s()',
+    (action) => {
+      vi.useFakeTimers();
+      try {
+        const timer = new TaskTimer({ interval: 20, precision: false });
+        const callback = vi.fn();
+        timer.add(callback);
+        timer.once(Event.TICK, () => timer[action]());
+
+        timer.start();
+        vi.advanceTimersByTime(60);
+
+        expect(callback).not.toHaveBeenCalled();
+        expect(timer.taskRunCount).toBe(0);
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it.each(['pause', 'stop', 'reset'] as const)(
+    'skips later tasks when a task callback calls %s()',
+    (action) => {
+      vi.useFakeTimers();
+      try {
+        const timer = new TaskTimer({ interval: 20, precision: false });
+        const first = vi.fn(() => {
+          timer[action]();
+        });
+        const second = vi.fn();
+        timer.add([first, second]);
+
+        timer.start();
+        vi.advanceTimersByTime(60);
+
+        expect(first).toHaveBeenCalledOnce();
+        expect(second).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+  );
+
+  it('runs pending tasks on the next tick after a listener pauses and resumes', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      const callback = vi.fn();
+      timer.add(callback);
+      timer.once(Event.TICK, () => timer.pause().resume());
+
+      timer.start();
+      vi.advanceTimersByTime(20);
+      expect(callback).not.toHaveBeenCalled();
+      expect(timer.state).toBe(State.RUNNING);
+
+      vi.advanceTimersByTime(20);
+      expect(callback).toHaveBeenCalledOnce();
+      expect(timer.tickCount).toBe(2);
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('runs later tasks only on the next tick when a task restarts the timer', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      const second = vi.fn();
+      let restarted = false;
+      timer.add([
+        () => {
+          if (!restarted) {
+            restarted = true;
+            timer.start();
+          }
+        },
+        second
+      ]);
+
+      timer.start();
+      vi.advanceTimersByTime(20);
+      expect(second).not.toHaveBeenCalled();
+      expect(timer.tickCount).toBe(0);
+
+      vi.advanceTimersByTime(20);
+      expect(second).toHaveBeenCalledOnce();
+      expect(timer.tickCount).toBe(1);
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not double-schedule when start() is called inside a tick', () => {
     vi.useFakeTimers();
     try {

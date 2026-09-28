@@ -489,6 +489,7 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
     this.#emit(Event.TICK);
 
     for (const task of tasks.values()) {
+      if (generation !== this.#generation) return;
       if (task.canRunOnTick) this.#dispatch(task);
     }
 
