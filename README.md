@@ -39,7 +39,7 @@ Because of the single-threaded, asynchronous [nature of JavaScript][how-timers-w
 - **Sync or async** tasks — return a `Promise` or use the `done()` callback.
 - **Limit runs** per task (`totalRuns`), add an initial **delay** (`tickDelay`), run on the **leading edge** (`lead`), or bind a task to a **date window** (`startDate` / `stopDate`).
 - Attach arbitrary **`data`** to a task — typed via `Task<TData>`.
-- Add, remove, reset, enable/disable, **pause and resume** tasks at any time — without recreating the timer.
+- Add, remove, reset, **enable/disable** tasks at any time, and **pause and resume** the timer — without recreating it.
 - **Stateful**: auto-stop when all tasks complete (`stopOnCompleted`); free memory when a task finishes (`removeOnCompleted`).
 - A familiar, **typed `EventEmitter`** surface (`on` / `once` / `off` / `emit` …) — listeners get a typed event.
 - **Coded errors** — every throw is a `TaskTimerError` with a stable `err.code`; opt out of swallowing task errors with `silentErrors`.
@@ -55,7 +55,7 @@ npm i tasktimer
 import { TaskTimer, Event, State } from 'tasktimer';
 ```
 
-`Event`, `State`, `Task`, `TaskTimerError` and `ErrorCode` are all named exports (there is no `TaskTimer.Event` namespace).
+`Event`, `State`, `Task`, `TaskTimerError`, `ErrorCode` and `EventEmitter` are all named exports (there is no `TaskTimer.Event` namespace).
 
 > [!NOTE]
 > TaskTimer is **ESM-only**. It runs in Node **and** the browser via native ESM or a bundler (Vite, esbuild, Rollup, webpack …) — precision uses the universal `performance.now()`, and `setImmediate` falls back to `setTimeout` off-Node.
@@ -163,7 +163,7 @@ timer.reset();   // back to idle; tasks removed silently
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `interval` | `number` | Base tick interval in ms (read/write). |
+| `interval` | `number` | Base tick interval in ms; anything under 20 is clamped to 20 (read/write). |
 | `precision` | `boolean` | Whether drift auto-correction is enabled (read/write). |
 | `stopOnCompleted` | `boolean` | Auto-stop once all tasks complete (read/write). |
 | `silentErrors` | `boolean` | Swallow task errors with no `taskError` listener; `false` surfaces them (read/write). |
@@ -185,7 +185,7 @@ timer.reset();   // back to idle; tasks removed silently
 | `start()` | `TaskTimer` | Start (or restart) the timer. |
 | `pause()` | `TaskTimer` | Pause the timer and all tasks. |
 | `resume()` | `TaskTimer` | Resume a paused timer (starts it if idle). |
-| `stop()` | `TaskTimer` | Stop the timer, retaining tasks and counters. |
+| `stop()` | `TaskTimer` | Stop a running timer, retaining tasks and counters. A no-op on a paused timer; `reset()` or `resume().stop()` ends a pause. |
 | `reset()` | `TaskTimer` | Stop and reset to idle, removing all tasks silently. |
 
 `TaskTimer` also exposes the `EventEmitter` surface: `on` / `addListener`, `once`, `off` / `removeListener`, `removeAllListeners`, `emit`, `listeners`, `listenerCount`, `eventNames`.
