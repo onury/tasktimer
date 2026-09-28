@@ -558,6 +558,100 @@ describe('TaskTimer events', () => {
 });
 
 describe('Task scheduling by date', () => {
+  it('ends a task whose stopDate has passed instead of running it once more', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      const callback = vi.fn();
+      const onCompleted = vi.fn();
+      timer.on(Event.TASK_COMPLETED, onCompleted);
+      timer.add({ id: 'deadline', stopDate: Date.now() + 30, callback });
+
+      timer.start();
+      vi.advanceTimersByTime(20); // tick 1 at 20 ms, before the deadline
+      expect(callback).toHaveBeenCalledOnce();
+      const task = timer.get('deadline')!;
+      expect(task.completed).toBe(false);
+
+      vi.advanceTimersByTime(20); // tick 2 at 40 ms, past the deadline
+      expect(callback).toHaveBeenCalledOnce();
+      expect(task.currentRuns).toBe(1);
+      expect(task.completed).toBe(true);
+      expect(onCompleted).toHaveBeenCalledOnce();
+      expect(task.time.stopped).toBe(Date.now());
+      expect(task.time.elapsed).toBe(task.time.stopped - task.time.started);
+
+      vi.advanceTimersByTime(40); // completed once, not on every later tick
+      expect(onCompleted).toHaveBeenCalledOnce();
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('treats the stopDate instant itself as past', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      const callback = vi.fn();
+      timer.add({ id: 'edge', stopDate: Date.now() + 40, callback });
+
+      timer.start();
+      vi.advanceTimersByTime(20);
+      expect(callback).toHaveBeenCalledOnce();
+
+      vi.advanceTimersByTime(20); // the tick lands exactly on the stopDate
+      expect(callback).toHaveBeenCalledOnce();
+      expect(timer.get('edge')!.completed).toBe(true);
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('completes a disabled task by its stopDate', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false, stopOnCompleted: true });
+      const callback = vi.fn();
+      const onCompleted = vi.fn();
+      timer.on(Event.TASK_COMPLETED, onCompleted);
+      timer.add({ id: 'held', enabled: false, stopDate: Date.now() + 30, callback });
+
+      timer.start();
+      vi.advanceTimersByTime(20);
+      expect(onCompleted).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(20);
+      expect(callback).not.toHaveBeenCalled();
+      expect(onCompleted).toHaveBeenCalledOnce();
+      const task = timer.get('held')!;
+      expect(task.completed).toBe(true);
+      expect(task.time).toEqual({ started: 0, stopped: 0, elapsed: 0 });
+      expect(timer.state).toBe(State.STOPPED);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not lead-run a task whose stopDate has passed', () => {
+    vi.useFakeTimers();
+    try {
+      const timer = new TaskTimer({ interval: 20, precision: false });
+      const callback = vi.fn();
+      const onCompleted = vi.fn();
+      timer.on(Event.TASK_COMPLETED, onCompleted);
+      timer.add({ id: 'late', lead: true, stopDate: Date.now() - 1, callback });
+
+      timer.start();
+      expect(callback).not.toHaveBeenCalled();
+      expect(onCompleted).toHaveBeenCalledOnce();
+      timer.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects a startDate equal to or after stopDate', () => {
     const timer = new TaskTimer(40);
     const date = Date.now();

@@ -490,6 +490,9 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
 
     for (const task of tasks.values()) {
       if (generation !== this.#generation) return;
+      // A task past its stopDate ends here, enabled or not, instead of getting
+      // one more run.
+      if (task._expire()) continue;
       if (task.canRunOnTick) this.#dispatch(task);
     }
 
@@ -506,13 +509,14 @@ class TaskTimer extends EventEmitter<(event: ITaskTimerEvent) => void> {
    */
   #runLeadingTasks(): void {
     for (const task of this.#state.tasks.values()) {
+      if (task._expire()) continue;
       if (task.canRunOnLead) this.#dispatch(task);
     }
   }
 
   /**
-   *  Runs a single task and accounts for the run. `_run` itself skips a disabled
-   *  or already-completed task.
+   *  Runs a single task and accounts for the run. `_run` itself skips a
+   *  disabled task.
    *  @internal
    */
   #dispatch(task: Task): void {

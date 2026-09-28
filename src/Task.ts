@@ -231,8 +231,7 @@ class Task<TData = any> {
    *  @internal
    */
   get canRunOnTick(): boolean {
-    // Stryker disable next-line all: redundant fast-path; `_run` re-checks #markedCompleted before executing.
-    if (this.#markedCompleted) return false;
+    // A completed task never gets here: the timer asks `_expire()` first.
     const { startDate } = this.#state;
     // Stryker disable all: date-anchored scheduling — mutations shift only the virtual tick mapping/start gate (wall-clock dependent), covered behaviorally by the startDate test.
     if (startDate && Date.now() < Number(startDate)) return false;
@@ -309,7 +308,8 @@ class Task<TData = any> {
    *  @internal
    */
   _run(onRun: () => void): void {
-    if (!this.enabled || this.#markedCompleted) return;
+    // A completed task never reaches `_run`: the timer asks `_expire()` first.
+    if (!this.enabled) return;
     if (this.currentRuns === 0) this.#state.timeOnFirstRun = Date.now();
     // current runs must be set before execution, or it might drift if some
     // async runs finish faster than others.
@@ -321,6 +321,25 @@ class Task<TData = any> {
     } else {
       this.#execCallback();
     }
+  }
+
+  /**
+   *  Ends the task once its `stopDate` has passed, without running it, and
+   *  informs the owning timer. A deadline ends a disabled task too. Called only
+   *  by {@link TaskTimer} before it considers the task for a run.
+   *  @returns Whether the task is completed.
+   *  @internal
+   */
+  _expire(): boolean {
+    if (this.#markedCompleted) return true;
+    const { stopDate } = this.#state;
+    if (!stopDate || Date.now() < Number(stopDate)) return false;
+    this.#markedCompleted = true;
+    // Freeze `time.elapsed` only for a task that has run; one that never ran
+    // keeps `{ 0, 0, 0 }`.
+    if (this.#state.timeOnFirstRun) this.#state.timeOnLastRun = Date.now();
+    this.#timer._taskCompleted(this);
+    return true;
   }
 
   /**
