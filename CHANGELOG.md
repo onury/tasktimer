@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org).
 
+## 4.0.1 (2026-09-28)
+
+### Fixed
+- **A task no longer runs once more after its `stopDate`.** The deadline was only checked after a run, so a task whose `stopDate` had passed still got one run on its next due tick before completing. It now completes on that tick without running. The same applies to a disabled task, which never completed by date before and could hold a `stopOnCompleted` timer open forever.
+- **`pause()`, `stop()` or `reset()` from inside a tick ends that tick.** A `tick` listener or an earlier task callback that pauses, stops or resets the timer no longer lets the remaining tasks of that tick run; a paused-and-resumed timer runs them on its next tick. Thanks to [@bensynapse](https://github.com/bensynapse) ([#62](https://github.com/onury/tasktimer/pull/62)).
+
 ## 4.0.0 (2026-06-30)
 
 A 2026 modernization of TaskTimer — ESM-only, zero-dependency, browser-safe, strongly typed — with some new sugar (`lead`, `task.data`, typed events, coded errors, `silentErrors`). The scheduling model is the same; the surface around it is cleaner and more honest. See the [migration notes](#migrating-from-3x) below.
